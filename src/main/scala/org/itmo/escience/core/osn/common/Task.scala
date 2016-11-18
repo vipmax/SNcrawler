@@ -1,5 +1,7 @@
 package org.itmo.escience.core.osn.common
 
+import org.apache.log4j.Logger
+
 
 /**
   * Created by vipmax on 10.08.16.
@@ -7,6 +9,8 @@ package org.itmo.escience.core.osn.common
 
 
 trait Task {
+  val logger = Logger.getLogger(this.getClass)
+
   def run(network: AnyRef)
   def appname: String
   def name: String
