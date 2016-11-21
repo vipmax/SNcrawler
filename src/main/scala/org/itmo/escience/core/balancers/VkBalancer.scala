@@ -8,7 +8,7 @@ import org.itmo.escience.core.actors.VkSimpleWorkerActor.VkSimpleWorkerTaskReque
 import org.itmo.escience.core.osn.common.{Task, VkontakteTask}
 import org.itmo.escience.core.osn.vkontakte.tasks.{VkUserPostsTask, VkUserProfileTask}
 import org.itmo.escience.util.Util.{Continue, Stop, _}
-import org.itmo.escience.dao.{KafkaSaver, MongoSaver}
+import org.itmo.escience.dao.{KafkaSaver, KafkaUniqueSaver, MongoSaver, RedisSaver}
 
 import scala.collection.mutable
 
@@ -27,7 +27,7 @@ object VkBalancer {
     implicit val appname = "testApp"
 
 //    balancer ! new VkUserProfileTask("1", MongoSaver("192.168.13.133","test_db","test_collection"))
-    balancer ! new VkUserProfileTask("1", KafkaSaver("192.168.13.133:9092","test_topic"))
+    balancer ! new VkUserProfileTask("1", KafkaUniqueSaver("192.168.13.133:9092","localhost", "users"))
 
   }
 }
