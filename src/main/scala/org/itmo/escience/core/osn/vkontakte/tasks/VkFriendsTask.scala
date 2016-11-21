@@ -13,47 +13,49 @@ import scalaj.http.Http
 /**
   * Created by vipmax on 31.10.16.
   */
-class VkUserPostsTask(userId:String, saver: Saver = null)(implicit app: String) extends VkontakteTask {
+class VkFriendsTask(userId:String, saver: Saver = null)(implicit app: String) extends VkontakteTask {
 
-  override def name: String = s"VkPostsTask(userId=$userId)"
+  override def name: String = s"VkFriendsTask(userId=$userId)"
 
   override def appname: String = app
 
-  var result: BasicDBObject = null
+  var result: Array[BasicDBObject] = null
 
   override def run(network: AnyRef): Unit = {
 
     var end = false
     var offset = 0
-    val maxPostsCount = 100
-
+    val maxCount = 1000
     while(!end) {
-      val json = Http("https://api.vk.com/method/wall.get")
-        .param("owner_id", userId.toString)
-        .param("count", maxPostsCount.toString)
+      val res = Http("https://api.vk.com/method/friends.get")
+        .param("user_id", userId.toString)
         .param("offset", offset.toString)
+        .param("count", maxCount.toString)
         .param("v", "5.8")
-        .timeout(60 * 1000 * 10, 60 * 1000 * 10)
         .execute().body
+      logger.debug(res)
 
-      val posts: Array[BasicDBObject] = try {
-        JSON.parse(json).asInstanceOf[BasicDBObject]
-          .get("response").asInstanceOf[BasicDBObject]
-          .get("items").asInstanceOf[BasicDBList].toArray
-          .map{ case b:BasicDBObject =>
-            b.append("key", s"${b.getString("from_id")}_${b.getString("id")}")
-          }
+      val friends = try {
+        JSON.parse(res).asInstanceOf[BasicDBObject]
+       .get("response").asInstanceOf[BasicDBObject]
+       .get("items").asInstanceOf[BasicDBList].toArray.map(_.asInstanceOf[Int])
+       .map{f => new BasicDBObject()
+           .append("key", s"${userId}_${f}")
+           .append("user", userId)
+           .append("friend", f)
+       }
       } catch {case e: Exception => Array[BasicDBObject]()}
 
-      if (posts.length < maxPostsCount) end = true
-      offset += posts.length
 
-//      posts.foreach{println}
+      if (friends.length < maxCount) end = true
+      offset += friends.length
 
       Option(saver) match {
-        case Some(s) => posts.foreach(s.save)
+        case Some(s) => friends.foreach(s.save)
         case None => logger.debug(s"No saver for task $name")
       }
+
+      result = friends
     }
   }
 
@@ -62,8 +64,7 @@ class VkUserPostsTask(userId:String, saver: Saver = null)(implicit app: String) 
 
 }
 
-
-object testPosts {
+object testFriends {
   def main(args: Array[String]) {
     val actorSystem = ActorSystem("VkBalancer")
     val balancer = actorSystem.actorOf(Props[VkBalancer])
@@ -74,8 +75,9 @@ object testPosts {
 
     implicit val appname = "testApp"
 
-//        balancer ! new VkUserPostsTask("1", MongoSaver("192.168.13.133","test_db","test_posts_collection"))
-    balancer ! new VkUserPostsTask("1", KafkaUniqueSaver("192.168.13.133:9092","localhost", "test_posts"))
+//    balancer ! new VkFriendsTask("1", MongoSaver("192.168.13.133","test_db","test_relations_collection"))
+    balancer ! new VkFriendsTask("1", KafkaUniqueSaver("192.168.13.133:9092","localhost", "test_relations_collection"))
+
 
   }
 }

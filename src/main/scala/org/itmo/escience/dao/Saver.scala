@@ -39,20 +39,21 @@ case class KafkaUniqueSaver(kafkaEndpoint: String, redisEndpoint: String, kafkaT
   val kafkaProducer = new KafkaProducer[String, String](kafkaProps, new StringSerializer, new StringSerializer)
 
   val redisPool = new JedisPool(new JedisPoolConfig(), redisEndpoint)
+  val jedis = redisPool.getResource
 
   override def save(data: Any) {
     data match {
       case d:BasicDBObject =>
+
         val key = s"$kafkaTopic-${d.getString("key", java.util.UUID.randomUUID.toString.substring(0, 20))}"
         val value = d.toJson
         logger.debug(s"Needs to save BasicDBObject data ${value.substring(0, 100)}")
 
-        val jedis = redisPool.getResource
         val rsps = jedis.setnx(key, "")
         rsps match {
           case r if r <= 0 =>
             logger.debug(s"Key $key already saved to kafka")
-
+            jedis.expire(key, 10);
 
           case r if r > 0 =>
             logger.debug(s"Needs  save $key to kafka")
@@ -101,7 +102,7 @@ case class MongoSaver(host: String, db: String, collectionName: String) extends 
     data match {
       case d:BasicDBObject =>
         val key = d.getString("key", java.util.UUID.randomUUID.toString.substring(0,20))
-        logger.debug(s"Needs to save BasicDBObject with key=$key and data=${d.toJson.substring(0, 100)}")
+        logger.debug(s"Needs to save BasicDBObject with key=$key and data=${d.toJson}")
         val updateResult = dao.update(collection, key, d)
         logger.debug(updateResult)
 

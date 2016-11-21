@@ -24,11 +24,6 @@ object VkBalancer {
       actorSystem.actorOf(Props[VkSimpleWorkerActor]).tell(Init(), balancer)
     }
 
-    implicit val appname = "testApp"
-
-//    balancer ! new VkUserProfileTask("1", MongoSaver("192.168.13.133","test_db","test_collection"))
-    balancer ! new VkUserProfileTask("1", KafkaUniqueSaver("192.168.13.133:9092","localhost", "users"))
-
   }
 }
 
@@ -131,7 +126,7 @@ class VkBalancer extends Actor {
   }
 
   def dequeueTask(workerTaskRequest: VkSimpleWorkerTaskRequest): Option[Task] = {
-    val appAndTasks = findApp()
+    val appAndTasks = findApp(workerTaskRequest)
 
     val task = appAndTasks match {
       case Some((app, availableTaskTypes)) =>
@@ -158,7 +153,7 @@ class VkBalancer extends Actor {
     task
   }
 
-  def findApp(): Option[(App, Set[String])] = {
+  def findApp(taskRequest: VkSimpleWorkerTaskRequest): Option[(App, Set[String])] = {
     if (apps.isEmpty)
       return None
 
