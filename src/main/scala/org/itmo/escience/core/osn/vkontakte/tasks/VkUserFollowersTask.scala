@@ -133,23 +133,3 @@ class VkUserFollowersExtendedTask(userId:String, relationsSaver: Saver = null, u
   override def get() = result
 }
 
-object TestUserFollowers {
-  def main(args: Array[String]) {
-    val actorSystem = ActorSystem("VkBalancer")
-    val balancer = actorSystem.actorOf(Props[VkBalancer])
-
-    1 until 10 foreach { i=>
-      actorSystem.actorOf(Props[VkSimpleWorkerActor]).tell(Init(), balancer)
-    }
-
-    implicit val appname = "testApp"
-
-//    balancer ! new VkFriendsTask("1", MongoSaver("192.168.13.133","test_db","test_relations_collection"))
-
-    balancer ! new VkGroupFollowersExtendedTask(
-      userId = "1",
-      relationsSaver = MongoSaver("192.168.13.133","test_db", "test_relations_collection"),
-      usersSaver = MongoSaver("192.168.13.133","test_db", "test_users_collection")
-    )
-  }
-}

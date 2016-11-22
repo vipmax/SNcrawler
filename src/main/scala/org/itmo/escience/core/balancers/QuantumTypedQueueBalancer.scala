@@ -4,32 +4,12 @@ import akka.actor.{Actor, ActorRef, ActorSystem, Props}
 import org.itmo.escience.core.actors.VkSimpleWorkerActor
 import org.itmo.escience.core.osn.common.Task
 import org.itmo.escience.util.Util._
-import org.itmo.escience.core.osn.vkontakte.tasks.VkUserProfileTask
 
 import scala.collection.mutable
 
 /**
   * Created by Nikolay on 8/30/2016.
   */
-
-object TestQuantumTypedQueueBalancer {
-  def main(args: Array[String]) {
-    val actorSystem = ActorSystem("TestQuantumTypedQueueBalancer")
-    val balancer = actorSystem.actorOf(Props[QuantumTypedQueueBalancer])
-    println(s"balancer $balancer")
-    val vkSimpleWorkerActor = actorSystem.actorOf(Props[VkSimpleWorkerActor])
-    println(s"vkSimpleWorkerActor $vkSimpleWorkerActor")
-    vkSimpleWorkerActor.tell(Init(), balancer)
-
-    implicit val appname = "testApp"
-
-    Thread.sleep(3000)
-
-    balancer ! new VkUserProfileTask("32908760")
-
-  }
-}
-
 
 class QuantumTypedQueueBalancer extends Actor with BaseBalancer {
 

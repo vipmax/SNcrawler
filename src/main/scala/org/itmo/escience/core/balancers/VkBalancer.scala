@@ -6,7 +6,7 @@ import org.apache.log4j.Logger
 import org.itmo.escience.core.actors.VkSimpleWorkerActor
 import org.itmo.escience.core.actors.VkSimpleWorkerActor.VkSimpleWorkerTaskRequest
 import org.itmo.escience.core.osn.common.{Task, VkontakteTask}
-import org.itmo.escience.core.osn.vkontakte.tasks.{VkUserPostsTask, VkUserProfileTask}
+import org.itmo.escience.core.osn.vkontakte.tasks.{VkPostsTask}
 import org.itmo.escience.util.Util.{Continue, Stop, _}
 import org.itmo.escience.dao.{KafkaSaver, KafkaUniqueSaver, MongoSaver, RedisSaver}
 

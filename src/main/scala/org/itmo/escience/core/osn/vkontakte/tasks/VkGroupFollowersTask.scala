@@ -32,6 +32,7 @@ class VkGroupFollowersTask(groupId:String, saver: Saver = null)(implicit app: St
         .param("offset", offset.toString)
         .param("count", maxCount.toString)
         .param("v", "5.8")
+        .timeout(60 * 1000 * 10, 60 * 1000 * 10)
         .execute().body
       logger.debug(res)
 
@@ -64,7 +65,7 @@ class VkGroupFollowersTask(groupId:String, saver: Saver = null)(implicit app: St
 
 class VkGroupFollowersExtendedTask(userId:String, relationsSaver: Saver = null, usersSaver: Saver = null)(implicit app: String) extends VkontakteTask {
 
-  override def name: String = s"VkUserFollowersExtendedTask(userId=$userId)"
+  override def name: String = s"VkGroupFollowersExtendedTask(userId=$userId)"
 
   override def appname: String = app
 
@@ -133,23 +134,3 @@ class VkGroupFollowersExtendedTask(userId:String, relationsSaver: Saver = null, 
   override def get() = result
 }
 
-object TestGroupFollowers {
-  def main(args: Array[String]) {
-    val actorSystem = ActorSystem("VkBalancer")
-    val balancer = actorSystem.actorOf(Props[VkBalancer])
-
-    1 until 10 foreach { i=>
-      actorSystem.actorOf(Props[VkSimpleWorkerActor]).tell(Init(), balancer)
-    }
-
-    implicit val appname = "testApp"
-
-//    balancer ! new VkGroupFollowersTask("1", MongoSaver("192.168.13.133","test_db","test_group_relations_collection"))
-
-    balancer ! new VkGroupFollowersExtendedTask(
-      userId = "1",
-      relationsSaver = MongoSaver("192.168.13.133","test_db", "test_group_relations_collection"),
-      usersSaver = MongoSaver("192.168.13.133","test_db", "test_users_collection")
-    )
-  }
-}

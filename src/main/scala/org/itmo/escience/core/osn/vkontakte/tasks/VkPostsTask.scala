@@ -13,9 +13,9 @@ import scalaj.http.Http
 /**
   * Created by vipmax on 31.10.16.
   */
-class VkUserPostsTask(userId:String, saver: Saver = null)(implicit app: String) extends VkontakteTask {
+class VkPostsTask(ownerId:String, saver: Saver = null)(implicit app: String) extends VkontakteTask {
 
-  override def name: String = s"VkPostsTask(userId=$userId)"
+  override def name: String = s"VkUserPostsTask(userId=$ownerId)"
 
   override def appname: String = app
 
@@ -29,7 +29,7 @@ class VkUserPostsTask(userId:String, saver: Saver = null)(implicit app: String) 
 
     while(!end) {
       val json = Http("https://api.vk.com/method/wall.get")
-        .param("owner_id", userId.toString)
+        .param("owner_id", ownerId.toString)
         .param("count", maxPostsCount.toString)
         .param("offset", offset.toString)
         .param("v", "5.8")
@@ -62,20 +62,3 @@ class VkUserPostsTask(userId:String, saver: Saver = null)(implicit app: String) 
 
 }
 
-
-object TestUserPosts {
-  def main(args: Array[String]) {
-    val actorSystem = ActorSystem("VkBalancer")
-    val balancer = actorSystem.actorOf(Props[VkBalancer])
-
-    1 until 10 foreach { i=>
-      actorSystem.actorOf(Props[VkSimpleWorkerActor]).tell(Init(), balancer)
-    }
-
-    implicit val appname = "testApp"
-
-//        balancer ! new VkUserPostsTask("1", MongoSaver("192.168.13.133","test_db","test_posts_collection"))
-    balancer ! new VkUserPostsTask("1", KafkaUniqueSaver("192.168.13.133:9092","localhost", "test_posts"))
-
-  }
-}
