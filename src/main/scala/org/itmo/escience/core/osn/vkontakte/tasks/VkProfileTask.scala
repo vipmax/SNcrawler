@@ -6,20 +6,19 @@ import com.mongodb.util.JSON
 import org.itmo.escience.core.actors.VkSimpleWorkerActor
 import org.itmo.escience.core.balancers.{Init, VkBalancer}
 import org.itmo.escience.core.osn.common.VkontakteTask
-import org.itmo.escience.dao.{KafkaUniqueSaver, MongoSaver, Saver}
+import org.itmo.escience.dao.{KafkaUniqueSaver, MongoSaver, Saver, SaverInfo}
 
 import scalaj.http.Http
 
 /**
   * Created by vipmax on 31.10.16.
   */
-class VkProfileTask(profileIds: List[String], saver: Saver = null)(implicit app: String) extends VkontakteTask {
+case class VkProfileTask(profileIds: List[String], saverInfo: SaverInfo)(implicit app: String) extends VkontakteTask {
 
   override def name: String = s"VkProfileTask(userId=$profileIds)"
   override def appname: String = app
 
   var result: BasicDBObject = null
-  override def get() = result
 
   val group_fields = "city, country, place, description, wiki_page, members_count, " +
     "counters, start_date, finish_date, can_post, can_see_all_posts, activity," +
@@ -40,8 +39,6 @@ class VkProfileTask(profileIds: List[String], saver: Saver = null)(implicit app:
   override def run(network: AnyRef) {
     val users = profileIds.map(_.toLong).filter(_ > 0).mkString(",")
     val groups = profileIds.map(_.toLong).filter(_ < 0).map(-_).mkString(",")
-    logger.debug(users)
-    logger.debug(groups)
 
     if(users.nonEmpty) {
       val json = Http(s"https://api.vk.com/method/users.get")
@@ -84,7 +81,7 @@ class VkProfileTask(profileIds: List[String], saver: Saver = null)(implicit app:
     } catch {case e: Exception => Array[BasicDBObject]()}
   }
 
-  def save(profiles: Array[BasicDBObject]): Unit = {
+  def save(profiles: Array[BasicDBObject]) {
     Option(saver) match {
       case Some(s) => profiles.foreach(s.save)
       case None => logger.debug(s"No saver for task $name")

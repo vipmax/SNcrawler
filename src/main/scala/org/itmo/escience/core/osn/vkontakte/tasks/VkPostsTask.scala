@@ -6,16 +6,16 @@ import com.mongodb.{BasicDBList, BasicDBObject, DBObject}
 import org.itmo.escience.core.actors.VkSimpleWorkerActor
 import org.itmo.escience.core.balancers.{Init, VkBalancer}
 import org.itmo.escience.core.osn.common.VkontakteTask
-import org.itmo.escience.dao.{KafkaUniqueSaver, MongoSaver, Saver}
+import org.itmo.escience.dao.{KafkaUniqueSaver, MongoSaver, Saver, SaverInfo}
 
 import scalaj.http.Http
 
 /**
   * Created by vipmax on 31.10.16.
   */
-class VkPostsTask(ownerId:String, saver: Saver = null)(implicit app: String) extends VkontakteTask {
+case class VkPostsTask(ownerId:String, saverInfo: SaverInfo)(implicit app: String) extends VkontakteTask {
 
-  override def name: String = s"VkUserPostsTask(userId=$ownerId)"
+  override def name: String = s"VkPostsTask(userId=$ownerId)"
 
   override def appname: String = app
 
@@ -48,8 +48,6 @@ class VkPostsTask(ownerId:String, saver: Saver = null)(implicit app: String) ext
       if (posts.length < maxPostsCount) end = true
       offset += posts.length
 
-//      posts.foreach{println}
-
       Option(saver) match {
         case Some(s) => posts.foreach(s.save)
         case None => logger.debug(s"No saver for task $name")
@@ -58,7 +56,6 @@ class VkPostsTask(ownerId:String, saver: Saver = null)(implicit app: String) ext
   }
 
 
-  override def get() = result
 
 }
 

@@ -1,12 +1,16 @@
 package org.itmo.escience.core.balancers
 
+import java.net.InetAddress
+import java.util
+
 import akka.actor.Actor.Receive
 import akka.actor.{Actor, ActorRef, ActorSystem, Props}
+import com.typesafe.config.{ConfigFactory, ConfigValueFactory}
 import org.apache.log4j.Logger
 import org.itmo.escience.core.actors.VkSimpleWorkerActor
 import org.itmo.escience.core.actors.VkSimpleWorkerActor.VkSimpleWorkerTaskRequest
 import org.itmo.escience.core.osn.common.{Task, VkontakteTask}
-import org.itmo.escience.core.osn.vkontakte.tasks.{VkPostsTask}
+import org.itmo.escience.core.osn.vkontakte.tasks.VkPostsTask
 import org.itmo.escience.util.Util.{Continue, Stop, _}
 import org.itmo.escience.dao.{KafkaSaver, KafkaUniqueSaver, MongoSaver, RedisSaver}
 
@@ -17,8 +21,29 @@ import scala.collection.mutable
   */
 object VkBalancer {
   def main(args: Array[String]) {
-    val actorSystem = ActorSystem("VkBalancer")
-    val balancer = actorSystem.actorOf(Props[VkBalancer])
+    val ip = "127.0.0.1"
+
+    val akkaSystemName = """VkBalancer"""
+    val config: String = s"""
+      akka {
+          actor {
+            provider = "akka.remote.RemoteActorRefProvider"
+          }
+          remote {
+            log-remote-lifecycle-events = off
+            netty.tcp {
+              hostname = "$ip"
+              port = 2551
+            }
+          }
+          serializers {
+            java = "akka.serialization.JavaSerializer"
+          }
+      }
+     """
+
+    val actorSystem = ActorSystem(akkaSystemName, ConfigFactory.parseString(config))
+    val balancer = actorSystem.actorOf(Props[VkBalancer], "balancer")
 
     1 until 10 foreach { i=>
       actorSystem.actorOf(Props[VkSimpleWorkerActor]).tell(Init(), balancer)

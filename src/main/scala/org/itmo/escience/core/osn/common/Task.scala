@@ -1,6 +1,7 @@
 package org.itmo.escience.core.osn.common
 
 import org.apache.log4j.Logger
+import org.itmo.escience.dao.{Saver, SaverInfo}
 
 
 /**
@@ -9,20 +10,20 @@ import org.apache.log4j.Logger
 
 
 trait Task {
-  val logger = Logger.getLogger(this.getClass)
+  var logger: Logger = null
+
+  def saverInfo: SaverInfo
+  var saver: Saver = null
+  var saver2: Saver = null
 
   def run(network: AnyRef)
   def appname: String
   def name: String
 }
 
-trait TaskResult {
-  def get()
+trait TwitterTask extends Task {
 }
 
-trait TwitterTask extends Task with TaskResult {
-}
-
-trait VkontakteTask extends Task with TaskResult {
+trait VkontakteTask extends Task {
 }
 
