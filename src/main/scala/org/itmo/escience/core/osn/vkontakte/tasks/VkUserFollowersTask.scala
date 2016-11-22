@@ -133,7 +133,7 @@ class VkUserFollowersExtendedTask(userId:String, relationsSaver: Saver = null, u
   override def get() = result
 }
 
-object testFriends {
+object TestUserFollowers {
   def main(args: Array[String]) {
     val actorSystem = ActorSystem("VkBalancer")
     val balancer = actorSystem.actorOf(Props[VkBalancer])

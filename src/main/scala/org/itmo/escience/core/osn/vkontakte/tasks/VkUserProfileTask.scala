@@ -1,9 +1,13 @@
 package org.itmo.escience.core.osn.vkontakte.tasks
 
+import akka.actor.{ActorSystem, Props}
 import com.mongodb.{BasicDBList, BasicDBObject, DBObject}
 import com.mongodb.util.JSON
+import org.itmo.escience.core.actors.VkSimpleWorkerActor
+import org.itmo.escience.core.balancers.{Init, VkBalancer}
 import org.itmo.escience.core.osn.common.VkontakteTask
-import org.itmo.escience.dao.Saver
+import org.itmo.escience.dao.{KafkaUniqueSaver, MongoSaver, Saver}
+
 import scalaj.http.Http
 
 /**
@@ -50,5 +54,22 @@ class VkUserProfileTask(userId: String, saver: Saver = null)(implicit app: Strin
       case Some(s) => s.save(result)
       case None => logger.debug(s"No saver for task $name")
     }
+  }
+}
+
+
+object TestUserProfile {
+  def main(args: Array[String]) {
+    val actorSystem = ActorSystem("VkBalancer")
+    val balancer = actorSystem.actorOf(Props[VkBalancer])
+
+    1 until 10 foreach { i=>
+      actorSystem.actorOf(Props[VkSimpleWorkerActor]).tell(Init(), balancer)
+    }
+
+    implicit val appname = "testApp"
+
+    balancer ! new VkUserProfileTask("1", MongoSaver("192.168.13.133","test_db","test_collection"))
+
   }
 }

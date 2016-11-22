@@ -63,7 +63,7 @@ class VkUserPostsTask(userId:String, saver: Saver = null)(implicit app: String) 
 }
 
 
-object testPosts {
+object TestUserPosts {
   def main(args: Array[String]) {
     val actorSystem = ActorSystem("VkBalancer")
     val balancer = actorSystem.actorOf(Props[VkBalancer])
