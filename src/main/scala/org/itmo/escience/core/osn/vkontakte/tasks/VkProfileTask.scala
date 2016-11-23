@@ -78,7 +78,10 @@ case class VkProfileTask(profileIds: List[String], saverInfo: SaverInfo)(implici
             .toArray().map { case bdo: BasicDBObject =>
               bdo.append("key", s"${bdo.getInt("id")}")
             }
-    } catch {case e: Exception => Array[BasicDBObject]()}
+    } catch {case e: Exception =>
+      logger.error(json)
+      Array[BasicDBObject]()
+    }
   }
 
   def save(profiles: Array[BasicDBObject]) {

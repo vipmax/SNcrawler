@@ -96,3 +96,35 @@ object TestFollowersExtended {
     )
   }
 }
+
+object TestPosts {
+  def main(args: Array[String]) {
+    val actorSystem = ActorSystem("VkBalancer")
+    val balancer = actorSystem.actorOf(Props[VkBalancer])
+
+    actorSystem.actorOf(Props[VkSimpleWorkerActor]).tell(Init(), balancer)
+
+    implicit val appname = "testApp"
+
+    balancer ! new VkPostsTask(
+      ownerId = "-1",
+      saverInfo = MongoSaverInfo(endpoint = "192.168.13.133", db = "test_db", collection = "test_posts")
+    )
+  }
+}
+
+object TestSearchPosts {
+  def main(args: Array[String]) {
+    val actorSystem = ActorSystem("VkBalancer")
+    val balancer = actorSystem.actorOf(Props[VkBalancer])
+
+    actorSystem.actorOf(Props[VkSimpleWorkerActor]).tell(Init(), balancer)
+
+    implicit val appname = "testApp"
+
+    balancer ! new VkSearchPostsTask(
+      query = "spb",
+      saverInfo = MongoSaverInfo(endpoint = "192.168.13.133", db = "test_db", collection = "test_posts_spb")
+    )
+  }
+}

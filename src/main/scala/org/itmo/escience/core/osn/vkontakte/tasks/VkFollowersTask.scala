@@ -50,7 +50,10 @@ case class VkFollowersTask(profileId:String, saverInfo: SaverInfo)(implicit app:
             .append("profile", profileId)
             .append("follower", f)
           }
-      } catch {case e: Exception => Array[BasicDBObject]()}
+      } catch {case e: Exception =>
+        logger.error(res)
+        Array[BasicDBObject]()
+      }
 
       if (followers.length < maxCount) end = true
       offset += followers.length

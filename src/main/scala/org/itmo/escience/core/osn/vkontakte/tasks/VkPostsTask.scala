@@ -43,7 +43,10 @@ case class VkPostsTask(ownerId:String, saverInfo: SaverInfo)(implicit app: Strin
           .map{ case b:BasicDBObject =>
             b.append("key", s"${b.getString("from_id")}_${b.getString("id")}")
           }
-      } catch {case e: Exception => Array[BasicDBObject]()}
+      } catch {case e: Exception =>
+        logger.error(json)
+        Array[BasicDBObject]()
+      }
 
       if (posts.length < maxPostsCount) end = true
       offset += posts.length
