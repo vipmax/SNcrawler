@@ -3,7 +3,7 @@ package org.itmo.escience.core.balancers
 import akka.actor.{Actor, ActorRef, ActorSystem, Props}
 import com.typesafe.config.ConfigFactory
 import org.apache.log4j.Logger
-import org.itmo.escience.core.actors.TwitterSimpleWorkerActor.TwitterSimpleWorkerTaskRequest
+import org.itmo.escience.core.actors.TwitterSequentialTypedWorkerActor.TwitterTypedWorkerTaskRequest
 import org.itmo.escience.core.actors.{TwitterSimpleWorkerActor, VkSimpleWorkerActor}
 import org.itmo.escience.core.osn.common.{Task, TwitterTask, VkontakteTask}
 import org.itmo.escience.util.Util
@@ -61,7 +61,7 @@ class TwitterBalancer extends Actor {
   val taskCounters = mutable.Map[String, Int]()
 
   override def receive: Receive = {
-    case workerTaskRequest: TwitterSimpleWorkerTaskRequest =>
+    case workerTaskRequest: TwitterTypedWorkerTaskRequest =>
       logger.debug(s"Got ${workerTaskRequest.getClass.getSimpleName}($workerTaskRequest)")
 
       val maybeTask = dequeueTask(workerTaskRequest)
@@ -80,7 +80,7 @@ class TwitterBalancer extends Actor {
     case task:TwitterTask  =>
       logger.debug(s"Got ${task.getClass.getSimpleName}(${task.name})")
 
-      val freeWorker = getFreeWorker(task.getClass.getSimpleName)
+      val freeWorker = getFreeWorker(task.taskType())
 
       freeWorker match {
         case Some(worker) =>
@@ -91,7 +91,7 @@ class TwitterBalancer extends Actor {
           actualTasksCount += 1
 
         case None =>
-          logger.info(s"freeWorker not found for task type: ${task.name}")
+          logger.info(s"freeWorker not found for task type: ${task.taskType()}")
 
           enqueueTask(task)
           actualTasksCount += 1
@@ -123,10 +123,12 @@ class TwitterBalancer extends Actor {
     }
   }
 
-  def addFreeWorker(freeWorker: ActorRef, workerTaskRequest: TwitterSimpleWorkerTaskRequest) = {
-    val tt = workerTaskRequest.task.getClass.getSimpleName
-    if (!freeWorkers.contains(tt)) freeWorkers.put(tt, mutable.Set[ActorRef]())
-    freeWorkers(tt) += freeWorker
+  /* for each  free slot adding freeWorker */
+  def addFreeWorker(freeWorker: ActorRef, workerTaskRequest: TwitterTypedWorkerTaskRequest) = {
+    workerTaskRequest.freeSlots.foreach{ case freeSlot =>
+      if (!freeWorkers.contains(freeSlot)) freeWorkers.put(freeSlot, mutable.Set[ActorRef]())
+      freeWorkers(freeSlot) += freeWorker
+    }
   }
 
   def enqueueTask(task: Task) = {
@@ -148,7 +150,7 @@ class TwitterBalancer extends Actor {
     taskCounters(taskType) += 1
   }
 
-  def dequeueTask(workerTaskRequest: TwitterSimpleWorkerTaskRequest): Option[Task] = {
+  def dequeueTask(workerTaskRequest: TwitterTypedWorkerTaskRequest): Option[Task] = {
     val appAndTasks = findApp(workerTaskRequest)
 
     val task = appAndTasks match {
@@ -171,18 +173,16 @@ class TwitterBalancer extends Actor {
       case None =>
     }
 
-    // calculate probabilities and choose the task
-    // returns one of the tasks back
     task
   }
 
-  def findApp(taskRequest: TwitterSimpleWorkerTaskRequest): Option[(App, Set[String])] = {
+  def findApp(taskRequest: TwitterTypedWorkerTaskRequest): Option[(App, Set[String])] = {
     if (apps.isEmpty)
       return None
 
     val (currIndex, app) = ringLoop(apps, start = currentAppIndex) { app =>
       // check if tokens are matching
-      val availableTaskTypes = app.taskTypes().toSet
+      val availableTaskTypes = app.taskTypes().toSet.intersect(taskRequest.freeSlots)
       if (availableTaskTypes.nonEmpty) {
         Stop((app, availableTaskTypes))
       } else {

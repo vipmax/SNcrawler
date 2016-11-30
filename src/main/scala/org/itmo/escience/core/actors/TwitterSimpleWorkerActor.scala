@@ -2,9 +2,10 @@ package org.itmo.escience.core.actors
 
 import akka.actor.{Actor, ActorRef, Props}
 import org.apache.log4j.Logger
-import org.itmo.escience.core.actors.TwitterSimpleWorkerActor.TwitterSimpleWorkerTaskRequest
+import org.itmo.escience.core.actors.TwitterSequentialTypedWorkerActor.TwitterTypedWorkerTaskRequest
 import org.itmo.escience.core.balancers.Init
 import org.itmo.escience.core.osn.common.{TwitterAccount, TwitterTask}
+import org.itmo.escience.core.osn.twitter.tasks.TwitterTaskUtil
 import org.itmo.escience.dao.{KafkaUniqueSaver, KafkaUniqueSaverInfo, _}
 import twitter4j.{Twitter, TwitterFactory}
 import twitter4j.conf.ConfigurationBuilder
@@ -15,7 +16,6 @@ import twitter4j.conf.ConfigurationBuilder
 object TwitterSimpleWorkerActor {
   def props(twitterAccount: TwitterAccount) = Props(new TwitterSimpleWorkerActor(twitterAccount))
 
-  case class TwitterSimpleWorkerTaskRequest(task: TwitterTask)
 }
 
 class TwitterSimpleWorkerActor(twitterAccount: TwitterAccount) extends Actor {
@@ -30,18 +30,18 @@ class TwitterSimpleWorkerActor(twitterAccount: TwitterAccount) extends Actor {
 
       inject(task)
       task.run(twitter)
-      balancer ! TwitterSimpleWorkerTaskRequest(task)
+      balancer ! TwitterTypedWorkerTaskRequest(TwitterTaskUtil.getAllTasks(), previousTask = task)
 
     case Init() =>
       logger.debug(s"Init balancer with sender=$sender")
       balancer = sender
-      balancer ! TwitterSimpleWorkerTaskRequest(null)
+      balancer ! TwitterTypedWorkerTaskRequest(TwitterTaskUtil.getAllTasks())
 
     case _ =>
       throw new RuntimeException("World is burning!!")
   }
 
-  def inject(task: TwitterTask): Unit = {
+  def inject(task: TwitterTask) {
     task.logger = Logger.getLogger(s"${task.appname} ${task.name}")
 
     task.saverInfo match {

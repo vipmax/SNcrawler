@@ -131,7 +131,7 @@ case class App(name:String, var quantumCount:Int = 1, var quantumLeft:Int = 1,
   private var _currtaskTypeIndex: Int = 0
 
   def addTask(task:Task) {
-    val taskType = task.getClass.toString
+    val taskType = task.taskType()
     if (!tasksByType.contains(taskType)) {
       tasksByType(taskType) = mutable.LinkedHashSet[Task]()
     }
@@ -144,7 +144,7 @@ case class App(name:String, var quantumCount:Int = 1, var quantumLeft:Int = 1,
   }
 
   def removeTask(task:Task): Unit = {
-    val taskType = task.getClass.toString
+    val taskType = task.taskType()
     tasksByType(taskType).remove(task)
     if (tasksByType(taskType).isEmpty){
       tasksByType.remove(taskType)

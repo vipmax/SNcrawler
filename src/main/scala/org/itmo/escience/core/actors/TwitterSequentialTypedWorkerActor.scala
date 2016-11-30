@@ -2,14 +2,15 @@ package org.itmo.escience.core.actors
 
 import akka.actor.{Actor, ActorRef, Props}
 import org.apache.log4j.Logger
-import org.itmo.escience.core.actors.TwitterSequentialTypedWorkerActor.TwitterSequentialTypedWorkerTaskRequest
+import org.itmo.escience.core.actors.TwitterSequentialTypedWorkerActor.TwitterTypedWorkerTaskRequest
 import org.itmo.escience.core.balancers.{Init, UpdateSlots}
 import org.itmo.escience.core.osn.common.{Account, Task, TwitterAccount, TwitterTask}
+import org.itmo.escience.core.osn.twitter.tasks.TwitterTaskUtil
+import org.itmo.escience.dao.{KafkaUniqueSaver, KafkaUniqueSaverInfo, _}
 import twitter4j.{Twitter, TwitterFactory}
 import twitter4j.conf.ConfigurationBuilder
 
 import scala.collection.mutable
-import scala.collection.mutable._
 import scala.concurrent.duration._
 import scala.concurrent.duration.FiniteDuration
 
@@ -18,17 +19,19 @@ import scala.concurrent.duration.FiniteDuration
   */
 object TwitterSequentialTypedWorkerActor {
 
-  def props(account: TwitterAccount, requestsMaxPerTask: collection.immutable.Map[Class[_ <: TwitterTask], Int]) =
-    Props(new TwitterSequentialTypedWorkerActor(account, requestsMaxPerTask)) /* TODO: fix it*/
+  def props(account: TwitterAccount, requestsMaxPerTask: Map[String, Int] = TwitterTaskUtil.getAllSlots()) =
+    Props(new TwitterSequentialTypedWorkerActor(account, requestsMaxPerTask))
 
-  case class TwitterSequentialTypedWorkerTaskRequest(
-    usedSlots: List[Class[_ <: TwitterTask]] = List[Class[_ <: TwitterTask]](),
+  case class TwitterTypedWorkerTaskRequest(
+    freeSlots: Set[String] ,
     previousTask: Task = null
   )
 }
 
 
-class TwitterSequentialTypedWorkerActor(account: TwitterAccount, requestsMaxPerTask: collection.immutable.Map[Class[_ <: TwitterTask], Int]) extends Actor {
+class TwitterSequentialTypedWorkerActor(account: TwitterAccount,
+                                        requestsMaxPerTask: Map[String, Int]
+                                       ) extends Actor {
   val logger = Logger.getLogger(this.getClass)
 
   var twitter: Twitter = {
@@ -45,7 +48,8 @@ class TwitterSequentialTypedWorkerActor(account: TwitterAccount, requestsMaxPerT
 
   var balancer: ActorRef = _
 
-  val requestsAvailablePerTaskType = mutable.Map[Class[_ <: TwitterTask], Int]()
+  /* tasktype and requests available */
+  val slots = mutable.Map[String, Int]()
 
   val blockedTime: FiniteDuration = 15 minutes
 
@@ -53,24 +57,25 @@ class TwitterSequentialTypedWorkerActor(account: TwitterAccount, requestsMaxPerT
     case task: TwitterTask =>
       logger.info(s"task = $task ${task.getClass}")
 
+      inject(task)
       /* running task */
       task.run(twitter)
 
       /* slots updating */
-      if (!requestsAvailablePerTaskType.keySet.contains(task.getClass))
-        requestsAvailablePerTaskType(task.getClass) = requestsMaxPerTask(task.getClass) - 1
+      if (!slots.keySet.contains(task.taskType()))
+        slots(task.taskType()) = requestsMaxPerTask(task.taskType()) - 1
       else
-        requestsAvailablePerTaskType(task.getClass) -= 1
+        slots(task.taskType()) -= 1
 
       /* asking new task */
-      val usedSlots = requestsAvailablePerTaskType.filter { case (_, requestsLeft) => requestsLeft <= 0 }.keys
-      balancer ! TwitterSequentialTypedWorkerTaskRequest(usedSlots.toList, task)
+      val freeSlots = slots.filter { case (_, requestsLeft) => requestsLeft > 0 }.keys.toSet
+      balancer ! TwitterTypedWorkerTaskRequest(freeSlots, task)
 
 
     case Init() =>
       logger.info(s"Init balancer with sender=$sender")
       balancer = sender
-      balancer ! TwitterSequentialTypedWorkerTaskRequest()
+      balancer ! TwitterTypedWorkerTaskRequest(requestsMaxPerTask.keys.toSet)
 
       /* updating slots each $blockedTime seconds */
       context.system.scheduler.scheduleOnce(
@@ -78,10 +83,12 @@ class TwitterSequentialTypedWorkerActor(account: TwitterAccount, requestsMaxPerT
       )(context.dispatcher)
 
     case UpdateSlots() =>
-      requestsAvailablePerTaskType.keys.foreach { taskType => requestsAvailablePerTaskType(taskType) = requestsMaxPerTask(taskType) }
-      logger.info(s"all slots updated $requestsAvailablePerTaskType")
+      slots.keys.foreach { taskType =>
+        slots(taskType) = requestsMaxPerTask(taskType)
+      }
+      logger.info(s"all slots updated $slots")
 
-      balancer ! TwitterSequentialTypedWorkerTaskRequest()
+      balancer ! TwitterTypedWorkerTaskRequest(requestsMaxPerTask.keys.toSet)
 
       /* updating slots each $blockedTime seconds */
       context.system.scheduler.scheduleOnce(
@@ -89,7 +96,32 @@ class TwitterSequentialTypedWorkerActor(account: TwitterAccount, requestsMaxPerT
       )(context.dispatcher)
 
     case _ =>
-      throw new RuntimeException("World is burning!!")
+      throw new RuntimeException("Unknown message type!")
+  }
+
+  def inject(task: TwitterTask) {
+    task.logger = Logger.getLogger(s"${task.appname} ${task.name}")
+
+    task.saverInfo match {
+      case MongoSaverInfo(endpoint: String, db: String, collection: String) =>
+        logger.debug(s"Found saver {mongo $endpoint, $db, $collection}")
+        task.saver = new MongoSaver(endpoint, db, collection)
+
+      case MongoSaverInfo2(endpoint: String, db: String, collection: String, collection2: String) =>
+        logger.debug(s"Found saver {mongo $endpoint, $db, $collection}")
+        task.saver = new MongoSaver(endpoint, db, collection)
+        task.saver2 = new MongoSaver(endpoint, db, collection2)
+
+      case KafkaSaverInfo(endpoint: String, topic: String) =>
+        logger.debug(s"Found saver {kafka $endpoint, $topic}")
+        task.saver = new KafkaSaver(endpoint, topic)
+
+      case KafkaUniqueSaverInfo(kafkaEndpoint: String, redisEndpoint: String, topic: String) =>
+        logger.debug(s"Found saver {kafka unique $kafkaEndpoint,$redisEndpoint, $topic}")
+        task.saver = new KafkaUniqueSaver(kafkaEndpoint, redisEndpoint, topic)
+
+      case _ => logger.debug("Unknown saver")
+    }
   }
 
 }

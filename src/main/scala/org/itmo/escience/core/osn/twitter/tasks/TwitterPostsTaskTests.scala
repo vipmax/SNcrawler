@@ -1,7 +1,7 @@
 package org.itmo.escience.core.osn.twitter.tasks
 
 import akka.actor.{ActorSystem, Props}
-import org.itmo.escience.core.actors.{TwitterSimpleWorkerActor, VkSimpleWorkerActor}
+import org.itmo.escience.core.actors.{TwitterSequentialTypedWorkerActor, TwitterSimpleWorkerActor, VkSimpleWorkerActor}
 import org.itmo.escience.core.balancers.{Init, TwitterBalancer}
 import org.itmo.escience.core.osn.vkontakte.tasks.VkSearchPostsTask
 import org.itmo.escience.dao.MongoSaverInfo
@@ -18,7 +18,7 @@ object TwitterPostsTaskTests {
     val accounts = Util.getTwitterAccounts().take(1)
 
     accounts foreach { account =>
-      actorSystem.actorOf(TwitterSimpleWorkerActor.props(account)).tell(Init(), balancer)
+      actorSystem.actorOf(TwitterSequentialTypedWorkerActor.props(account)).tell(Init(), balancer)
     }
 
     implicit val appname = "testApp"
@@ -40,7 +40,7 @@ object TwitterFollowersTaskTests {
     val accounts = Util.getTwitterAccounts().take(1)
 
     accounts foreach { account =>
-      actorSystem.actorOf(TwitterSimpleWorkerActor.props(account)).tell(Init(), balancer)
+      actorSystem.actorOf(TwitterSequentialTypedWorkerActor.props(account)).tell(Init(), balancer)
     }
 
     implicit val appname = "testApp"
