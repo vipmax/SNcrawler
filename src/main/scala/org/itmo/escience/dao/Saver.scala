@@ -111,9 +111,9 @@ case class MongoSaver(host: String, db: String, collectionName: String) extends 
     data match {
       case d:BasicDBObject =>
         val key = d.getString("key", java.util.UUID.randomUUID.toString.substring(0,20))
-        logger.debug(s"Needs to save BasicDBObject with key=$key and data=${d.toJson}")
+//        logger.debug(s"Needs to save BasicDBObject with key=$key and data=${d.toJson}")
         val updateResult = dao.update(collection, key, d)
-        logger.debug(updateResult)
+//        logger.debug(updateResult)
 
       case _ =>
         logger.debug(s"Needs to save unknown data ")
@@ -129,9 +129,9 @@ case class MongoSaver2(host: String, db: String, collectionName: String) extends
     data match {
       case d:BasicDBObject =>
         val key = d.getString("key", java.util.UUID.randomUUID.toString.substring(0,20))
-        logger.debug(s"Needs to save BasicDBObject with key=$key and data=${d.toJson}")
+//        logger.debug(s"Needs to save BasicDBObject with key=$key and data=${d.toJson}")
         val updateResult = dao.update(collection, key, d)
-        logger.debug(updateResult)
+//        logger.debug(updateResult)
 
       case _ =>
         logger.debug(s"Needs to save unknown data ")

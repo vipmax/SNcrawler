@@ -6,6 +6,8 @@ import org.itmo.escience.core.actors.VkSimpleWorkerActor.VkSimpleWorkerTaskReque
 import org.itmo.escience.core.balancers.{Init, TypedTaskRequest}
 import org.itmo.escience.core.osn.common.VkontakteTask
 import org.itmo.escience.dao._
+import twitter4j.{Twitter, TwitterFactory}
+import twitter4j.conf.ConfigurationBuilder
 
 import scala.collection.mutable
 import scala.collection.mutable._
@@ -24,7 +26,6 @@ class VkSimpleWorkerActor() extends Actor {
   val logger = Logger.getLogger(this.getClass)
 
   var balancer: ActorRef = _
-
 
   override def receive: Receive = {
     case task: VkontakteTask =>

@@ -19,6 +19,7 @@ trait Task {
   def run(network: AnyRef)
   def appname: String
   def name: String
+  def taskType() = this.getClass.getSimpleName
 }
 
 trait TwitterTask extends Task {
@@ -27,3 +28,6 @@ trait TwitterTask extends Task {
 trait VkontakteTask extends Task {
 }
 
+trait State {
+  def saveState(stateParams: Map[String, Any])
+}

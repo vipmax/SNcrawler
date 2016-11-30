@@ -1,29 +1,24 @@
 package org.itmo.escience.core.balancers
 
-import java.net.InetAddress
-import java.util
-
-import akka.actor.Actor.Receive
 import akka.actor.{Actor, ActorRef, ActorSystem, Props}
-import com.typesafe.config.{ConfigFactory, ConfigValueFactory}
+import com.typesafe.config.ConfigFactory
 import org.apache.log4j.Logger
-import org.itmo.escience.core.actors.VkSimpleWorkerActor
-import org.itmo.escience.core.actors.VkSimpleWorkerActor.VkSimpleWorkerTaskRequest
-import org.itmo.escience.core.osn.common.{Task, VkontakteTask}
-import org.itmo.escience.core.osn.vkontakte.tasks.VkPostsTask
+import org.itmo.escience.core.actors.TwitterSimpleWorkerActor.TwitterSimpleWorkerTaskRequest
+import org.itmo.escience.core.actors.{TwitterSimpleWorkerActor, VkSimpleWorkerActor}
+import org.itmo.escience.core.osn.common.{Task, TwitterTask, VkontakteTask}
+import org.itmo.escience.util.Util
 import org.itmo.escience.util.Util.{Continue, Stop, _}
-import org.itmo.escience.dao.{KafkaSaver, KafkaUniqueSaver, MongoSaver, RedisSaver}
 
 import scala.collection.mutable
 
 /**
-  * Created by vipmax on 14.11.16.
+  * Created by vipmax on 29.11.16.
   */
-object VkBalancer {
+object TwitterBalancer {
   def main(args: Array[String]) {
     val ip = "127.0.0.1"
 
-    val akkaSystemName = """VkBalancer"""
+    val akkaSystemName = """TwitterBalancer"""
     val config: String = s"""
       akka {
           actor {
@@ -45,13 +40,17 @@ object VkBalancer {
     val actorSystem = ActorSystem(akkaSystemName, ConfigFactory.parseString(config))
     val balancer = actorSystem.actorOf(Props[TwitterBalancer], "balancer")
 
-    1 until 10 foreach { i=>
-      actorSystem.actorOf(Props[VkSimpleWorkerActor]).tell(Init(), balancer)
+    val accounts = Util.getTwitterAccounts().take(10)
+
+    accounts foreach { account =>
+      actorSystem.actorOf(TwitterSimpleWorkerActor.props(account)).tell(Init(), balancer)
     }
   }
+
 }
 
-class VkBalancer extends Actor {
+
+class TwitterBalancer extends Actor {
   val logger = Logger.getLogger(this.getClass)
 
   val freeWorkers = mutable.Map[String, mutable.Set[ActorRef]]()
@@ -61,10 +60,9 @@ class VkBalancer extends Actor {
   var actualTasksCount = 0
   val taskCounters = mutable.Map[String, Int]()
 
-
   override def receive: Receive = {
-    case workerTaskRequest: VkSimpleWorkerTaskRequest =>
-      logger.debug(s"Got VkSimpleWorkerTaskRequest($workerTaskRequest)")
+    case workerTaskRequest: TwitterSimpleWorkerTaskRequest =>
+      logger.debug(s"Got ${workerTaskRequest.getClass.getSimpleName}($workerTaskRequest)")
 
       val maybeTask = dequeueTask(workerTaskRequest)
 
@@ -79,17 +77,17 @@ class VkBalancer extends Actor {
       }
 
 
-    case task:VkontakteTask  =>
-      logger.debug(s"Got VkontakteTask(${task.name})")
+    case task:TwitterTask  =>
+      logger.debug(s"Got ${task.getClass.getSimpleName}(${task.name})")
 
-      val freeWorker = getFreeWorker(task.taskType())
+      val freeWorker = getFreeWorker(task.getClass.getSimpleName)
 
       freeWorker match {
         case Some(worker) =>
           logger.info(s"Sending task ${task.name} to worker $worker")
 
           worker ! task
-          removeFreeWorker(worker, task.taskType())
+          removeFreeWorker(worker,task.taskType())
           actualTasksCount += 1
 
         case None =>
@@ -103,11 +101,11 @@ class VkBalancer extends Actor {
   }
 
 
-  def getFreeWorker(slot: String): Option[ActorRef] = {
-    if (!freeWorkers.contains(slot))
+  def getFreeWorker(taskType: String): Option[ActorRef] = {
+    if (!freeWorkers.contains(taskType))
       return None
 
-    val workers = freeWorkers(slot)
+    val workers = freeWorkers(taskType)
     if (workers.nonEmpty) {
       val worker = workers.head
       workers -= worker
@@ -125,8 +123,8 @@ class VkBalancer extends Actor {
     }
   }
 
-  def addFreeWorker(freeWorker: ActorRef, workerTaskRequest: VkSimpleWorkerTaskRequest) = {
-    val tt = workerTaskRequest.task.taskType()
+  def addFreeWorker(freeWorker: ActorRef, workerTaskRequest: TwitterSimpleWorkerTaskRequest) = {
+    val tt = workerTaskRequest.task.getClass.getSimpleName
     if (!freeWorkers.contains(tt)) freeWorkers.put(tt, mutable.Set[ActorRef]())
     freeWorkers(tt) += freeWorker
   }
@@ -150,7 +148,7 @@ class VkBalancer extends Actor {
     taskCounters(taskType) += 1
   }
 
-  def dequeueTask(workerTaskRequest: VkSimpleWorkerTaskRequest): Option[Task] = {
+  def dequeueTask(workerTaskRequest: TwitterSimpleWorkerTaskRequest): Option[Task] = {
     val appAndTasks = findApp(workerTaskRequest)
 
     val task = appAndTasks match {
@@ -178,7 +176,7 @@ class VkBalancer extends Actor {
     task
   }
 
-  def findApp(taskRequest: VkSimpleWorkerTaskRequest): Option[(App, Set[String])] = {
+  def findApp(taskRequest: TwitterSimpleWorkerTaskRequest): Option[(App, Set[String])] = {
     if (apps.isEmpty)
       return None
 
@@ -220,10 +218,9 @@ class VkBalancer extends Actor {
     task
   }
 
-  def removeFreeWorker(worker: ActorRef, tasktype:String) = {
-    freeWorkers(tasktype) -= worker
+  def removeFreeWorker(worker: ActorRef, taskType: String) = {
+    freeWorkers(taskType) -= worker
   }
 }
-
 
 

@@ -1,5 +1,11 @@
 package org.itmo.escience.util
 
+import java.io.File
+
+import org.itmo.escience.core.osn.common.TwitterAccount
+
+import scala.io.Source
+
 /**
   * Created by vipmax on 31.10.16.
   */
@@ -23,4 +29,18 @@ object Util {
   abstract class Result[+T]
   case class Stop[B](result:B) extends Result[B]
   case object Continue extends Result[Nothing]
+
+
+  def getTwitterAccounts() = {
+    val creds = new File(s"/home/vipmax/IdeaProjects/crawler/src/main/resources/twitterCreds")
+      .listFiles()
+      .flatMap(file => {
+        Source.fromFile(file)
+          .getLines()
+          .filter(_.length > 10)
+          .grouped(4)
+          .map(group => new TwitterAccount(group.head.split("key=")(1), group(1).split("secret=")(1), group(2).split("token=")(1), group(3).split("token_secret=")(1)))
+      })
+    creds
+  }
 }

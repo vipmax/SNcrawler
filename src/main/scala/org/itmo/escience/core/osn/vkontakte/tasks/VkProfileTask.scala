@@ -4,7 +4,7 @@ import akka.actor.{ActorSystem, Props}
 import com.mongodb.{BasicDBList, BasicDBObject, DBObject}
 import com.mongodb.util.JSON
 import org.itmo.escience.core.actors.VkSimpleWorkerActor
-import org.itmo.escience.core.balancers.{Init, VkBalancer}
+import org.itmo.escience.core.balancers.{Init, TwitterBalancer}
 import org.itmo.escience.core.osn.common.VkontakteTask
 import org.itmo.escience.dao.{KafkaUniqueSaver, MongoSaver, Saver, SaverInfo}
 

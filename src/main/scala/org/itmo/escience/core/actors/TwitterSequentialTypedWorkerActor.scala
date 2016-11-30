@@ -4,9 +4,11 @@ import akka.actor.{Actor, ActorRef, Props}
 import org.apache.log4j.Logger
 import org.itmo.escience.core.actors.TwitterSequentialTypedWorkerActor.TwitterSequentialTypedWorkerTaskRequest
 import org.itmo.escience.core.balancers.{Init, UpdateSlots}
-import org.itmo.escience.core.osn.common.{Account, Task, TwitterTask}
-import twitter4j.Twitter
+import org.itmo.escience.core.osn.common.{Account, Task, TwitterAccount, TwitterTask}
+import twitter4j.{Twitter, TwitterFactory}
+import twitter4j.conf.ConfigurationBuilder
 
+import scala.collection.mutable
 import scala.collection.mutable._
 import scala.concurrent.duration._
 import scala.concurrent.duration.FiniteDuration
@@ -16,8 +18,8 @@ import scala.concurrent.duration.FiniteDuration
   */
 object TwitterSequentialTypedWorkerActor {
 
-  def props(account: Account, requestsMaxPerTask: Map[Class[_ <: TwitterTask], Int]) =
-    Props(new TwitterSequentialTypedWorkerActor(account, requestsMaxPerTask))
+  def props(account: TwitterAccount, requestsMaxPerTask: collection.immutable.Map[Class[_ <: TwitterTask], Int]) =
+    Props(new TwitterSequentialTypedWorkerActor(account, requestsMaxPerTask)) /* TODO: fix it*/
 
   case class TwitterSequentialTypedWorkerTaskRequest(
     usedSlots: List[Class[_ <: TwitterTask]] = List[Class[_ <: TwitterTask]](),
@@ -26,15 +28,26 @@ object TwitterSequentialTypedWorkerActor {
 }
 
 
-class TwitterSequentialTypedWorkerActor(account: Account, requestsMaxPerTask: Map[Class[_ <: TwitterTask], Int]) extends Actor {
+class TwitterSequentialTypedWorkerActor(account: TwitterAccount, requestsMaxPerTask: collection.immutable.Map[Class[_ <: TwitterTask], Int]) extends Actor {
   val logger = Logger.getLogger(this.getClass)
 
-  var twitter: Twitter = _
+  var twitter: Twitter = {
+    val cb = new ConfigurationBuilder()
+    cb.setDebugEnabled(true)
+      .setJSONStoreEnabled(true)
+      .setOAuthConsumerKey(account.key)
+      .setOAuthConsumerSecret(account.secret)
+      .setOAuthAccessToken(account.token)
+      .setOAuthAccessTokenSecret(account.tokenSecret)
+    val twitter = new TwitterFactory(cb.build()).getInstance()
+    twitter
+  }
+
   var balancer: ActorRef = _
 
-  val requestsAvailablePerTaskType = Map[Class[_ <: TwitterTask], Int]()
+  val requestsAvailablePerTaskType = mutable.Map[Class[_ <: TwitterTask], Int]()
 
-  val blockedTime: FiniteDuration = 15 seconds
+  val blockedTime: FiniteDuration = 15 minutes
 
   override def receive: Receive = {
     case task: TwitterTask =>
