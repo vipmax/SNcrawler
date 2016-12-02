@@ -1,5 +1,9 @@
 package org.itmo.escience.core.osn.twitter.tasks
 
+import com.mongodb.BasicDBObject
+import com.mongodb.util.JSON
+import twitter4j.{Status, TwitterObjectFactory}
+
 /**
   * Created by vipmax on 30.11.16.
   */
@@ -9,7 +13,9 @@ object TwitterTaskUtil {
   def getAllSlots() = {
     val slots = Map(
       "TwitterFollowersTask" -> 15,
-      "TwitterPostsTask" -> 900
+      "TwitterPostsTask" -> 900,
+      "TwitterSearchPostsTask" -> 180,
+      "TwitterProfileTask" -> 900
     )
     println(slots)
     slots
@@ -17,9 +23,19 @@ object TwitterTaskUtil {
   def getAllTasks() = {
     val tasks = Set(
       "TwitterFollowersTask",
+      "TwitterProfileTask",
+      "TwitterSearchPostsTask",
       "TwitterPostsTask"
     )
     println(tasks)
     tasks
+  }
+
+  def mapStatuses(statuses: List[Status]) = {
+    statuses.map { status =>
+      val json = TwitterObjectFactory.getRawJSON(status)
+      val basicDBObject = JSON.parse(json).asInstanceOf[BasicDBObject]
+      basicDBObject.append("key", s"${basicDBObject.getString("id")}")
+    }
   }
 }

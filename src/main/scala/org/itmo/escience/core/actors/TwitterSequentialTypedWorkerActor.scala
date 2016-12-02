@@ -4,15 +4,14 @@ import akka.actor.{Actor, ActorRef, Props}
 import org.apache.log4j.Logger
 import org.itmo.escience.core.actors.TwitterSequentialTypedWorkerActor.TwitterTypedWorkerTaskRequest
 import org.itmo.escience.core.balancers.{Init, UpdateSlots}
-import org.itmo.escience.core.osn.common.{Account, Task, TwitterAccount, TwitterTask}
+import org.itmo.escience.core.osn.common.{Task, TwitterAccount, TwitterTask}
 import org.itmo.escience.core.osn.twitter.tasks.TwitterTaskUtil
 import org.itmo.escience.dao.{KafkaUniqueSaver, KafkaUniqueSaverInfo, _}
-import twitter4j.{Twitter, TwitterFactory}
 import twitter4j.conf.ConfigurationBuilder
+import twitter4j.{Twitter, TwitterFactory}
 
 import scala.collection.mutable
-import scala.concurrent.duration._
-import scala.concurrent.duration.FiniteDuration
+import scala.concurrent.duration.{FiniteDuration, _}
 
 /**
   * Created by djvip on 13.08.2016.
@@ -33,7 +32,9 @@ class TwitterSequentialTypedWorkerActor(account: TwitterAccount,
                                         requestsMaxPerTask: Map[String, Int]
                                        ) extends Actor {
   val logger = Logger.getLogger(this.getClass)
-
+  /* tasktype and requests available */
+  val slots = mutable.Map[String, Int]()
+  val blockedTime: FiniteDuration = 15 minutes
   var twitter: Twitter = {
     val cb = new ConfigurationBuilder()
     cb.setDebugEnabled(true)
@@ -45,13 +46,7 @@ class TwitterSequentialTypedWorkerActor(account: TwitterAccount,
     val twitter = new TwitterFactory(cb.build()).getInstance()
     twitter
   }
-
   var balancer: ActorRef = _
-
-  /* tasktype and requests available */
-  val slots = mutable.Map[String, Int]()
-
-  val blockedTime: FiniteDuration = 15 minutes
 
   override def receive: Receive = {
     case task: TwitterTask =>
@@ -59,13 +54,23 @@ class TwitterSequentialTypedWorkerActor(account: TwitterAccount,
 
       inject(task)
       /* running task */
-      task.run(twitter)
+      try {
+        task.run(twitter)
+      } catch {
+        case e: Exception =>
+          e.getStackTrace.foreach(logger.debug)
+          slots(task.taskType()) = 0
+      }
+
+
 
       /* slots updating */
       if (!slots.keySet.contains(task.taskType()))
-        slots(task.taskType()) = requestsMaxPerTask(task.taskType()) - 1
+        slots(task.taskType()) = requestsMaxPerTask(task.taskType()) - task.newRequestsCount()
       else
-        slots(task.taskType()) -= 1
+        slots(task.taskType()) -= task.newRequestsCount()
+
+      logger.debug(slots)
 
       /* asking new task */
       val freeSlots = slots.filter { case (_, requestsLeft) => requestsLeft > 0 }.keys.toSet
@@ -105,20 +110,20 @@ class TwitterSequentialTypedWorkerActor(account: TwitterAccount,
     task.saverInfo match {
       case MongoSaverInfo(endpoint: String, db: String, collection: String) =>
         logger.debug(s"Found saver {mongo $endpoint, $db, $collection}")
-        task.saver = new MongoSaver(endpoint, db, collection)
+        task.saver = MongoSaver(endpoint, db, collection)
 
       case MongoSaverInfo2(endpoint: String, db: String, collection: String, collection2: String) =>
         logger.debug(s"Found saver {mongo $endpoint, $db, $collection}")
-        task.saver = new MongoSaver(endpoint, db, collection)
-        task.saver2 = new MongoSaver(endpoint, db, collection2)
+        task.saver = MongoSaver(endpoint, db, collection)
+        task.saver2 = MongoSaver(endpoint, db, collection2)
 
       case KafkaSaverInfo(endpoint: String, topic: String) =>
         logger.debug(s"Found saver {kafka $endpoint, $topic}")
-        task.saver = new KafkaSaver(endpoint, topic)
+        task.saver = KafkaSaver(endpoint, topic)
 
       case KafkaUniqueSaverInfo(kafkaEndpoint: String, redisEndpoint: String, topic: String) =>
         logger.debug(s"Found saver {kafka unique $kafkaEndpoint,$redisEndpoint, $topic}")
-        task.saver = new KafkaUniqueSaver(kafkaEndpoint, redisEndpoint, topic)
+        task.saver = KafkaUniqueSaver(kafkaEndpoint, redisEndpoint, topic)
 
       case _ => logger.debug("Unknown saver")
     }

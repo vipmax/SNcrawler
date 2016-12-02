@@ -11,10 +11,10 @@ import org.itmo.escience.dao.{Saver, SaverInfo}
 
 trait Task {
   var logger: Logger = null
-
-  def saverInfo: SaverInfo
   var saver: Saver = null
   var saver2: Saver = null
+
+  def saverInfo: SaverInfo
 
   def run(network: AnyRef)
   def appname: String
@@ -23,6 +23,7 @@ trait Task {
 }
 
 trait TwitterTask extends Task {
+  def newRequestsCount(): Int
 }
 
 trait VkontakteTask extends Task {

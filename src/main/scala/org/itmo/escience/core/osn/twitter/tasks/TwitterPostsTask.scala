@@ -1,73 +1,75 @@
 package org.itmo.escience.core.osn.twitter.tasks
 
-import com.mongodb.BasicDBObject
-import com.mongodb.util.JSON
 import org.itmo.escience.core.osn.common.{State, TwitterTask}
 import org.itmo.escience.dao.SaverInfo
-import twitter4j.{Paging, Twitter, TwitterObjectFactory}
+import twitter4j._
 
-import collection.JavaConversions._
+import scala.collection.JavaConversions._
 
 /**
   * Created by vipmax on 29.11.16.
   */
 case class TwitterPostsTask(profileId: Any, saverInfo: SaverInfo)(implicit app: String) extends TwitterTask with State{
 
-  override def name: String = s"TwitterPostsTask(profileId=$profileId)"
+  /* state */
+  var offset = 1L
+  var _newRequestsCount = 0
+
   override def appname: String = app
 
   override def run(network: AnyRef) {
     network match {
-      case twitter: Twitter => extractPosts(twitter)
+      case twitter: Twitter => extract(twitter)
       case _ => logger.debug("No TwitterTemplate object found")
     }
   }
 
-
-  def extractPosts(twitter: Twitter) {
-
+  def extract(twitter: Twitter) {
     var end = false
-    var offset = 1
+    /* read state */
+    var localOffset = offset
     val maxPostsCount = 20
 
     while (!end) {
 
-      val paging = new Paging(offset)
+      val paging = new Paging(localOffset)
       logger.debug(paging)
 
       val statuses = profileId match {
         case id: String =>
-          logger.debug("StatusesCount = "+twitter.showUser(id).getStatusesCount)
+          //          logger.debug("StatusesCount = "+twitter.showUser(id).getStatusesCount)
           twitter.timelines().getUserTimeline(id, paging)
         case id: Long =>
-          logger.debug("StatusesCount = "+twitter.showUser(id).getStatusesCount)
+          //          logger.debug("StatusesCount = "+twitter.showUser(id).getStatusesCount)
           twitter.timelines().getUserTimeline(id, paging)
       }
+      _newRequestsCount += 1
 
-      val jsonStatuses = statuses.map{ status =>
-          val json = TwitterObjectFactory.getRawJSON(status)
-          val basicDBObject = JSON.parse(json).asInstanceOf[BasicDBObject]
-          basicDBObject.append("key", s"${basicDBObject.getString("id")}")
-      }
+      val data = TwitterTaskUtil.mapStatuses(statuses.toList)
 
       Option(saver) match {
-        case Some(s) => jsonStatuses.foreach(s.save)
+        case Some(s) => data.foreach(s.save)
         case None => logger.debug(s"No saver for task $name")
       }
 
-      offset += 1
-      if(jsonStatuses.length < maxPostsCount) end = true
+      localOffset += 1
+      if (data.length < maxPostsCount) end = true
 
-      saveState(Map("offset" -> offset))
+      saveState(Map("offset" -> localOffset))
     }
   }
 
-  /* state */
-  var offset = -1L
+  override def name: String = s"TwitterPostsTask(profileId=$profileId)"
 
   override def saveState(stateParams: Map[String, Any]) {
     logger.debug(s"Saving state. stateParams=$stateParams")
     val offset = stateParams.getOrElse("offset", -1).toString.toLong
     this.offset = offset
+  }
+
+  override def newRequestsCount() = {
+    val returned = _newRequestsCount
+    _newRequestsCount = 0
+    returned
   }
 }
