@@ -1,25 +1,20 @@
 package org.itmo.escience.core.balancers
 
-import java.net.InetAddress
-import java.util
-
-import akka.actor.Actor.Receive
 import akka.actor.{Actor, ActorRef, ActorSystem, Props}
-import com.typesafe.config.{ConfigFactory, ConfigValueFactory}
+import com.typesafe.config.ConfigFactory
 import org.apache.log4j.Logger
-import org.itmo.escience.core.actors.VkSimpleWorkerActor
-import org.itmo.escience.core.actors.VkSimpleWorkerActor.VkSimpleWorkerTaskRequest
-import org.itmo.escience.core.osn.common.{Task, VkontakteTask}
-import org.itmo.escience.core.osn.vkontakte.tasks.VkPostsTask
+import org.itmo.escience.core.actors.SimpleWorkerActor
+import org.itmo.escience.core.actors.SimpleWorkerActor.SimpleWorkerTaskRequest
+import org.itmo.escience.core.osn.common.Task
 import org.itmo.escience.util.Util.{Continue, Stop, _}
-import org.itmo.escience.dao.{KafkaSaver, KafkaUniqueSaver, MongoSaver, RedisSaver}
 
 import scala.collection.mutable
-
 /**
-  * Created by vipmax on 14.11.16.
+  * Created by max on 02.12.16.
   */
-object VkBalancer {
+
+
+object SimpleBalancer {
   def main(args: Array[String]) {
     val ip = "127.0.0.1"
 
@@ -43,28 +38,26 @@ object VkBalancer {
      """
 
     val actorSystem = ActorSystem(akkaSystemName, ConfigFactory.parseString(config))
-    val balancer = actorSystem.actorOf(Props[TwitterBalancer], "balancer")
+    val balancer = actorSystem.actorOf(Props[SimpleBalancer], "balancer")
 
     1 until 10 foreach { i=>
-      actorSystem.actorOf(Props[VkSimpleWorkerActor]).tell(Init(), balancer)
+      actorSystem.actorOf(Props[SimpleWorkerActor]).tell(Init(), balancer)
     }
   }
 }
 
-class VkBalancer extends Actor {
+class SimpleBalancer extends Actor {
   val logger = Logger.getLogger(this.getClass)
 
   val freeWorkers = mutable.Map[String, mutable.Set[ActorRef]]()
   val apps = new mutable.MutableList[App]()
-
+  val taskCounters = mutable.Map[String, Int]()
   var currentAppIndex = 0
   var actualTasksCount = 0
-  val taskCounters = mutable.Map[String, Int]()
-
 
   override def receive: Receive = {
-    case workerTaskRequest: VkSimpleWorkerTaskRequest =>
-      logger.debug(s"Got VkSimpleWorkerTaskRequest($workerTaskRequest)")
+    case workerTaskRequest: SimpleWorkerTaskRequest =>
+      logger.debug(s"Got SimpleWorkerTaskRequest($workerTaskRequest)")
 
       val maybeTask = dequeueTask(workerTaskRequest)
 
@@ -79,8 +72,8 @@ class VkBalancer extends Actor {
       }
 
 
-    case task:VkontakteTask  =>
-      logger.debug(s"Got VkontakteTask(${task.name})")
+    case task: Task =>
+      logger.debug(s"Got Task(${task.name})")
 
       val freeWorker = getFreeWorker(task.taskType())
 
@@ -125,7 +118,7 @@ class VkBalancer extends Actor {
     }
   }
 
-  def addFreeWorker(freeWorker: ActorRef, workerTaskRequest: VkSimpleWorkerTaskRequest) = {
+  def addFreeWorker(freeWorker: ActorRef, workerTaskRequest: SimpleWorkerTaskRequest) = {
     val tt = workerTaskRequest.task.taskType()
     if (!freeWorkers.contains(tt)) freeWorkers.put(tt, mutable.Set[ActorRef]())
     freeWorkers(tt) += freeWorker
@@ -150,7 +143,7 @@ class VkBalancer extends Actor {
     taskCounters(taskType) += 1
   }
 
-  def dequeueTask(workerTaskRequest: VkSimpleWorkerTaskRequest): Option[Task] = {
+  def dequeueTask(workerTaskRequest: SimpleWorkerTaskRequest): Option[Task] = {
     val appAndTasks = findApp(workerTaskRequest)
 
     val task = appAndTasks match {
@@ -178,7 +171,7 @@ class VkBalancer extends Actor {
     task
   }
 
-  def findApp(taskRequest: VkSimpleWorkerTaskRequest): Option[(App, Set[String])] = {
+  def findApp(taskRequest: SimpleWorkerTaskRequest): Option[(App, Set[String])] = {
     if (apps.isEmpty)
       return None
 
@@ -224,6 +217,3 @@ class VkBalancer extends Actor {
     freeWorkers(tasktype) -= worker
   }
 }
-
-
-

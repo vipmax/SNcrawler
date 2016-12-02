@@ -1,12 +1,9 @@
 package org.escience.core.osn.vkontakte.tasks
 
-import akka.actor.{ActorSystem, Props}
-import com.mongodb.{BasicDBList, BasicDBObject, DBObject}
 import com.mongodb.util.JSON
-import org.itmo.escience.core.actors.VkSimpleWorkerActor
-import org.itmo.escience.core.balancers.{Init, TwitterBalancer}
+import com.mongodb.{BasicDBList, BasicDBObject, DBObject}
 import org.itmo.escience.core.osn.common.VkontakteTask
-import org.itmo.escience.dao.{KafkaUniqueSaver, MongoSaver, Saver, SaverInfo}
+import org.itmo.escience.dao.SaverInfo
 
 import scalaj.http.Http
 
@@ -15,15 +12,9 @@ import scalaj.http.Http
   */
 case class VkProfileTask(profileIds: List[String], saverInfo: SaverInfo)(implicit app: String) extends VkontakteTask {
 
-  override def name: String = s"VkProfileTask(userId=$profileIds)"
-  override def appname: String = app
-
-  var result: BasicDBObject = null
-
   val group_fields = "city, country, place, description, wiki_page, members_count, " +
     "counters, start_date, finish_date, can_post, can_see_all_posts, activity," +
     " status, contacts, links, fixed_post, verified, site,ban_info"
-
   val userFields = "photo_id, verified, sex, bdate, city, country, home_town, " +
     "has_photo, photo_50, photo_100, photo_200_orig, photo_200, " +
     "photo_400_orig, photo_max, photo_max_orig, online, lists, " +
@@ -35,6 +26,9 @@ case class VkProfileTask(profileIds: List[String], saverInfo: SaverInfo)(implici
     "can_send_friend_request, is_favorite, is_hidden_from_feed, timezone, " +
     "screen_name, maiden_name, crop_photo, is_friend, friend_status, career," +
     " military, blacklisted, blacklisted_by_me"
+  var result: BasicDBObject = null
+
+  override def appname: String = app
 
   override def run(network: AnyRef) {
     val users = profileIds.map(_.toLong).filter(_ > 0).mkString(",")
@@ -90,5 +84,7 @@ case class VkProfileTask(profileIds: List[String], saverInfo: SaverInfo)(implici
       case None => logger.debug(s"No saver for task $name")
     }
   }
+
+  override def name: String = s"VkProfileTask(userId=$profileIds)"
 }
 

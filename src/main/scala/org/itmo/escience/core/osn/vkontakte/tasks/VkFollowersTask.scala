@@ -1,12 +1,9 @@
 package org.itmo.escience.core.osn.vkontakte.tasks
 
-import akka.actor.{ActorSystem, Props}
 import com.mongodb.util.JSON
-import com.mongodb.{BasicDBList, BasicDBObject, DBObject}
-import org.itmo.escience.core.actors.VkSimpleWorkerActor
-import org.itmo.escience.core.balancers.{Init, TwitterBalancer}
+import com.mongodb.{BasicDBList, BasicDBObject}
 import org.itmo.escience.core.osn.common.VkontakteTask
-import org.itmo.escience.dao.{KafkaUniqueSaver, MongoSaver, Saver, SaverInfo}
+import org.itmo.escience.dao.SaverInfo
 
 import scalaj.http.Http
 
@@ -16,15 +13,13 @@ import scalaj.http.Http
 
 case class VkFollowersTask(profileId:String, saverInfo: SaverInfo)(implicit app: String) extends VkontakteTask {
 
-  override def name: String = s"VkFollowersTask(userId=$profileId)"
-  override def appname: String = app
-
-  var result: Array[BasicDBObject] = null
-
   val methodName = if (profileId.toLong > 0)  "friends.get" else "groups.getMembers"
   val paramProfileKey = if (profileId.toLong > 0)  "user_id" else "group_id"
   val paramProfileValue = if (profileId.toLong > 0)  profileId else profileId.substring(1)
   val parseKey = if (profileId.toLong > 0) "items" else "users"
+  var result: Array[BasicDBObject] = null
+
+  override def appname: String = app
 
   override def run(network: AnyRef) {
     var end = false
@@ -67,19 +62,16 @@ case class VkFollowersTask(profileId:String, saverInfo: SaverInfo)(implicit app:
     }
   }
 
+  override def name: String = s"VkFollowersTask(userId=$profileId)"
+
 }
 
 case class VkFollowersExtendedTask(profileId:String, saverInfo: SaverInfo)(implicit app: String) extends VkontakteTask {
-
-  override def name: String = s"VkUserFollowersExtendedTask(userId=$profileId)"
-
-  override def appname: String = app
 
   val methodName = if (profileId.toLong > 0)  "friends.get" else "groups.getMembers"
   val paramProfileKey = if (profileId.toLong > 0)  "user_id" else "group_id"
   val paramProfileValue = if (profileId.toLong > 0)  profileId else profileId.substring(1)
   val parseKey = if (profileId.toLong > 0) "items" else "users"
-
   val userFields =  "photo_id, verified, sex, bdate, city, country, home_town, " +
     "has_photo, photo_50, photo_100, photo_200_orig, photo_200, " +
     "photo_400_orig, photo_max, photo_max_orig, online, lists, " +
@@ -91,15 +83,14 @@ case class VkFollowersExtendedTask(profileId:String, saverInfo: SaverInfo)(impli
     "can_send_friend_request, is_favorite, is_hidden_from_feed, timezone, " +
     "screen_name, maiden_name, crop_photo, is_friend, friend_status, career," +
     " military, blacklisted, blacklisted_by_me"
-
   val groupFields =  "sex, bdate, city, country, photo_50, photo_100, photo_200_orig, " +
     "photo_200, photo_400_orig, photo_max, photo_max_orig, online, online_mobile," +
     " lists, domain, has_mobile, contacts, connections, site, education, universities," +
     " schools, can_post, can_see_all_posts, can_see_audio, can_write_private_message," +
     " status, last_seen, relation, relatives"
-
   val fields = if (profileId.toLong > 0) userFields else groupFields
 
+  override def appname: String = app
 
   override def run(network: AnyRef): Unit = {
 
@@ -150,6 +141,8 @@ case class VkFollowersExtendedTask(profileId:String, saverInfo: SaverInfo)(impli
 
     }
   }
+
+  override def name: String = s"VkUserFollowersExtendedTask(userId=$profileId)"
 }
 
 

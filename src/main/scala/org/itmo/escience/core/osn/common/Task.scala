@@ -29,6 +29,9 @@ trait TwitterTask extends Task {
 trait VkontakteTask extends Task {
 }
 
+trait InstagramTask extends Task {
+}
+
 trait State {
   def saveState(stateParams: Map[String, Any])
 }

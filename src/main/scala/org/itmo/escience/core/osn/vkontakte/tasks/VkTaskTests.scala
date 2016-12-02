@@ -1,13 +1,11 @@
 package org.itmo.escience.core.osn.vkontakte.tasks
 
 import akka.actor.{ActorSystem, Props}
-import com.mongodb.{BasicDBObject, MongoClient}
 import com.typesafe.config.ConfigFactory
 import org.escience.core.osn.vkontakte.tasks.VkProfileTask
-import org.itmo.escience.core.actors.VkSimpleWorkerActor
-import org.itmo.escience.core.balancers.{Init, TwitterBalancer, VkBalancer}
+import org.itmo.escience.core.actors.SimpleWorkerActor
+import org.itmo.escience.core.balancers.{Init, SimpleBalancer, TwitterBalancer}
 import org.itmo.escience.dao._
-import org.joda.time.DateTime
 
 /**
   * Created by vipmax on 22.11.16.
@@ -18,7 +16,7 @@ object TestProfile {
     val actorSystem = ActorSystem("VkBalancer")
     val balancer = actorSystem.actorOf(Props[TwitterBalancer])
 
-    actorSystem.actorOf(Props[VkSimpleWorkerActor]).tell(Init(), balancer)
+    actorSystem.actorOf(Props[SimpleWorkerActor]).tell(Init(), balancer)
 
     implicit val appname = "testApp"
 
@@ -72,7 +70,7 @@ object TestFollowers {
     val actorSystem = ActorSystem("VkBalancer")
     val balancer = actorSystem.actorOf(Props[TwitterBalancer])
 
-    actorSystem.actorOf(Props[VkSimpleWorkerActor]).tell(Init(), balancer)
+    actorSystem.actorOf(Props[SimpleWorkerActor]).tell(Init(), balancer)
 
     implicit val appname = "testApp"
 
@@ -88,7 +86,7 @@ object TestFollowersExtended {
     val actorSystem = ActorSystem("VkBalancer")
     val balancer = actorSystem.actorOf(Props[TwitterBalancer])
 
-    actorSystem.actorOf(Props[VkSimpleWorkerActor]).tell(Init(), balancer)
+    actorSystem.actorOf(Props[SimpleWorkerActor]).tell(Init(), balancer)
 
     implicit val appname = "testApp"
 
@@ -104,7 +102,7 @@ object TestPosts {
     val actorSystem = ActorSystem("VkBalancer")
     val balancer = actorSystem.actorOf(Props[TwitterBalancer])
 
-    actorSystem.actorOf(Props[VkSimpleWorkerActor]).tell(Init(), balancer)
+    actorSystem.actorOf(Props[SimpleWorkerActor]).tell(Init(), balancer)
 
     implicit val appname = "testApp"
 
@@ -120,7 +118,7 @@ object TestSearchPosts {
     val actorSystem = ActorSystem("VkBalancer")
     val balancer = actorSystem.actorOf(Props[TwitterBalancer])
 
-    actorSystem.actorOf(Props[VkSimpleWorkerActor]).tell(Init(), balancer)
+    actorSystem.actorOf(Props[SimpleWorkerActor]).tell(Init(), balancer)
 
     implicit val appname = "testApp"
 
@@ -136,9 +134,9 @@ object PrichislenkoCrawler {
   def main(args: Array[String]) {
 
     val actorSystem = ActorSystem("VkBalancer")
-    val balancer = actorSystem.actorOf(Props[VkBalancer])
+    val balancer = actorSystem.actorOf(Props[SimpleBalancer])
 
-    actorSystem.actorOf(Props[VkSimpleWorkerActor]).tell(Init(), balancer)
+    actorSystem.actorOf(Props[SimpleWorkerActor]).tell(Init(), balancer)
 
     implicit val appname = "PrichislenkoApp"
 

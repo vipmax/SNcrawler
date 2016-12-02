@@ -4,8 +4,8 @@ import akka.actor.{Actor, ActorRef, ActorSystem, Props}
 import com.typesafe.config.ConfigFactory
 import org.apache.log4j.Logger
 import org.itmo.escience.core.actors.TwitterSequentialTypedWorkerActor.TwitterTypedWorkerTaskRequest
-import org.itmo.escience.core.actors.{TwitterSimpleWorkerActor, VkSimpleWorkerActor}
-import org.itmo.escience.core.osn.common.{Task, TwitterTask, VkontakteTask}
+import org.itmo.escience.core.actors.TwitterSimpleWorkerActor
+import org.itmo.escience.core.osn.common.{Task, TwitterTask}
 import org.itmo.escience.util.Util
 import org.itmo.escience.util.Util.{Continue, Stop, _}
 
@@ -55,10 +55,9 @@ class TwitterBalancer extends Actor {
 
   val freeWorkers = mutable.Map[String, mutable.Set[ActorRef]]()
   val apps = new mutable.MutableList[App]()
-
+  val taskCounters = mutable.Map[String, Int]()
   var currentAppIndex = 0
   var actualTasksCount = 0
-  val taskCounters = mutable.Map[String, Int]()
 
   override def receive: Receive = {
     case workerTaskRequest: TwitterTypedWorkerTaskRequest =>

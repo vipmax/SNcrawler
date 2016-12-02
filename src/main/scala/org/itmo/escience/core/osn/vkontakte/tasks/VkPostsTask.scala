@@ -1,12 +1,9 @@
 package org.itmo.escience.core.osn.vkontakte.tasks
 
-import akka.actor.{ActorSystem, Props}
 import com.mongodb.util.JSON
-import com.mongodb.{BasicDBList, BasicDBObject, DBObject}
-import org.itmo.escience.core.actors.VkSimpleWorkerActor
-import org.itmo.escience.core.balancers.{Init, TwitterBalancer}
+import com.mongodb.{BasicDBList, BasicDBObject}
 import org.itmo.escience.core.osn.common.VkontakteTask
-import org.itmo.escience.dao.{KafkaUniqueSaver, MongoSaver, Saver, SaverInfo}
+import org.itmo.escience.dao.SaverInfo
 
 import scalaj.http.Http
 
@@ -15,11 +12,9 @@ import scalaj.http.Http
   */
 case class VkPostsTask(ownerId:String, saverInfo: SaverInfo)(implicit app: String) extends VkontakteTask {
 
-  override def name: String = s"VkPostsTask(userId=$ownerId)"
+  var result: BasicDBObject = null
 
   override def appname: String = app
-
-  var result: BasicDBObject = null
 
   override def run(network: AnyRef): Unit = {
 
@@ -57,6 +52,8 @@ case class VkPostsTask(ownerId:String, saverInfo: SaverInfo)(implicit app: Strin
       }
     }
   }
+
+  override def name: String = s"VkPostsTask(userId=$ownerId)"
 
 
 

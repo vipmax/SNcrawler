@@ -15,13 +15,12 @@ import twitter4j.{Twitter, TwitterFactory}
   */
 object TwitterSimpleWorkerActor {
   def props(twitterAccount: TwitterAccount) = Props(new TwitterSimpleWorkerActor(twitterAccount))
-
 }
 
 class TwitterSimpleWorkerActor(twitterAccount: TwitterAccount) extends Actor {
   val logger = Logger.getLogger(this.getClass)
   var balancer: ActorRef = _
-  var twitter: Twitter = buildTwitter()
+  var twitter: Twitter = buildTwitter(twitterAccount)
 
 
   override def receive: Receive = {
@@ -66,7 +65,7 @@ class TwitterSimpleWorkerActor(twitterAccount: TwitterAccount) extends Actor {
     }
   }
 
-  def buildTwitter(): Twitter = {
+  def buildTwitter(twitterAccount: TwitterAccount): Twitter = {
     val cb = new ConfigurationBuilder()
     cb.setDebugEnabled(true)
       .setJSONStoreEnabled(true)

@@ -1,7 +1,6 @@
 package org.itmo.escience.core.balancers
 
-import akka.actor.{Actor, ActorRef, ActorSystem, Props}
-import org.itmo.escience.core.actors.VkSimpleWorkerActor
+import akka.actor.{Actor, ActorRef}
 import org.itmo.escience.core.osn.common.Task
 import org.itmo.escience.util.Util._
 
@@ -13,14 +12,10 @@ import scala.collection.mutable
 
 class QuantumTypedQueueBalancer extends Actor with BaseBalancer {
 
-  protected var currentAppIndex = 0
-
   protected val taskCounters = mutable.Map[String, Int]()
-
   protected val freeWorkers = mutable.Map[String, mutable.Set[ActorRef]]()
-
   protected val apps: mutable.MutableList[App] = new mutable.MutableList[App]()
-
+  protected var currentAppIndex = 0
 
   override protected def getFreeWorker(slot: String): Option[ActorRef] = {
     if (!freeWorkers.contains(slot))
@@ -104,11 +99,6 @@ class QuantumTypedQueueBalancer extends Actor with BaseBalancer {
     task
   }
 
-  override protected def updateTokens(workerTaskRequest: TypedTaskRequest): Unit = {
-  }
-
-  override protected def updateTokens(freeWorker: ActorRef, task: Task): Unit = {}
-
   protected def findApp(tokens: mutable.Map[String, Int]): Option[(App, Set[String])] = {
 
     if (apps.isEmpty)
@@ -157,4 +147,9 @@ class QuantumTypedQueueBalancer extends Actor with BaseBalancer {
 
     task
   }
+
+  override protected def updateTokens(workerTaskRequest: TypedTaskRequest): Unit = {
+  }
+
+  override protected def updateTokens(freeWorker: ActorRef, task: Task): Unit = {}
 }
