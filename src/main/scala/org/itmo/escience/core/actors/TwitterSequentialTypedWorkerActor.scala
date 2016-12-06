@@ -8,7 +8,7 @@ import org.itmo.escience.core.osn.common.{Task, TwitterAccount, TwitterTask}
 import org.itmo.escience.core.osn.twitter.tasks.TwitterTaskUtil
 import org.itmo.escience.dao.{KafkaUniqueSaver, KafkaUniqueSaverInfo, _}
 import twitter4j.conf.ConfigurationBuilder
-import twitter4j.{Twitter, TwitterFactory}
+import twitter4j.{Twitter, TwitterException, TwitterFactory}
 
 import scala.collection.mutable
 import scala.concurrent.duration.{FiniteDuration, _}
@@ -35,6 +35,7 @@ class TwitterSequentialTypedWorkerActor(account: TwitterAccount,
   /* tasktype and requests available */
   val slots = mutable.Map[String, Int]()
   val blockedTime: FiniteDuration = 15 minutes
+
   var twitter: Twitter = {
     val cb = new ConfigurationBuilder()
     cb.setDebugEnabled(true)
@@ -56,19 +57,23 @@ class TwitterSequentialTypedWorkerActor(account: TwitterAccount,
       /* running task */
       try {
         task.run(twitter)
+
+        /* slots updating */
+        if (!slots.keySet.contains(task.taskType()))
+          slots(task.taskType()) = requestsMaxPerTask(task.taskType()) - task.newRequestsCount()
+        else
+          slots(task.taskType()) -= task.newRequestsCount()
+
       } catch {
-        case e: Exception =>
-          e.getStackTrace.foreach(logger.debug)
+        case e: TwitterException if e.getRateLimitStatus.getRemaining <= 0 =>
           slots(task.taskType()) = 0
+          logger.error(s"Trying once more for task $task!!!")
+          Thread.sleep(1000)
+          balancer ! task
+
+        case e: Exception =>
+          logger.error(s"Ignoring exception for task $task")
       }
-
-
-
-      /* slots updating */
-      if (!slots.keySet.contains(task.taskType()))
-        slots(task.taskType()) = requestsMaxPerTask(task.taskType()) - task.newRequestsCount()
-      else
-        slots(task.taskType()) -= task.newRequestsCount()
 
       logger.debug(slots)
 
@@ -110,7 +115,7 @@ class TwitterSequentialTypedWorkerActor(account: TwitterAccount,
     task.saverInfo match {
       case MongoSaverInfo(endpoint: String, db: String, collection: String) =>
         logger.debug(s"Found saver {mongo $endpoint, $db, $collection}")
-        task.saver = MongoSaver(endpoint, db, collection)
+        task.saver = ConnectionManager.getMongoConnection(endpoint, db, collection)
 
       case MongoSaverInfo2(endpoint: String, db: String, collection: String, collection2: String) =>
         logger.debug(s"Found saver {mongo $endpoint, $db, $collection}")
@@ -132,3 +137,13 @@ class TwitterSequentialTypedWorkerActor(account: TwitterAccount,
 }
 
 
+object ConnectionManager{
+  private val mongoPool = mutable.HashMap[String, MongoSaver]()
+
+  def getMongoConnection(host: String, db: String, collectionName: String) = {
+    val key = s"$host $db $collectionName"
+    val mongoSaver = mongoPool.getOrElse(key, MongoSaver(host, db, collectionName))
+    mongoPool(key) = mongoSaver
+    mongoSaver
+  }
+}

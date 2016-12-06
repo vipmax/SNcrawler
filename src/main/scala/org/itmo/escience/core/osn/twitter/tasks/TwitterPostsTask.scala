@@ -1,5 +1,6 @@
 package org.itmo.escience.core.osn.twitter.tasks
 
+import org.itmo.escience.core.osn.common.Filters.{CountFilter, TimeFilter}
 import org.itmo.escience.core.osn.common.{State, TwitterTask}
 import org.itmo.escience.dao.SaverInfo
 import twitter4j._
@@ -9,7 +10,10 @@ import scala.collection.JavaConversions._
 /**
   * Created by vipmax on 29.11.16.
   */
-case class TwitterPostsTask(profileId: Any, saverInfo: SaverInfo)(implicit app: String) extends TwitterTask with State{
+case class TwitterPostsTask(profileId: Any,
+                            timeFilter: TimeFilter = TimeFilter(),
+                            countFilter: CountFilter = CountFilter(3200),
+                            saverInfo: SaverInfo)(implicit app: String) extends TwitterTask with State{
 
   /* state */
   var offset = 1L
@@ -24,27 +28,29 @@ case class TwitterPostsTask(profileId: Any, saverInfo: SaverInfo)(implicit app: 
     }
   }
 
+
   def extract(twitter: Twitter) {
     var end = false
     /* read state */
     var localOffset = offset
-    val maxPostsCount = 20
+    var statusesCount = 0
+    val maxPostsCount = 100
 
     while (!end) {
 
-      val paging = new Paging(localOffset)
+      val paging = new Paging(localOffset.toInt, maxPostsCount)
       logger.debug(paging)
 
       val statuses = profileId match {
         case id: String =>
-          //          logger.debug("StatusesCount = "+twitter.showUser(id).getStatusesCount)
           twitter.timelines().getUserTimeline(id, paging)
         case id: Long =>
-          //          logger.debug("StatusesCount = "+twitter.showUser(id).getStatusesCount)
           twitter.timelines().getUserTimeline(id, paging)
       }
       _newRequestsCount += 1
+      statusesCount += statuses.length
 
+      logger.info(s"Saving ${statuses.length} tweets for $profileId Limits = ${statuses.getRateLimitStatus}")
       val data = TwitterTaskUtil.mapStatuses(statuses.toList)
 
       Option(saver) match {
@@ -52,11 +58,21 @@ case class TwitterPostsTask(profileId: Any, saverInfo: SaverInfo)(implicit app: 
         case None => logger.debug(s"No saver for task $name")
       }
 
-      localOffset += 1
-      if (data.length < maxPostsCount) end = true
+      if (statuses.isEmpty || isEnd(statuses, statusesCount) ) {
+        logger.debug(s"Ended for $profileId. statusesCount = $statusesCount")
+        end = true
+      }
 
+      localOffset += 1
       saveState(Map("offset" -> localOffset))
     }
+  }
+
+
+  def isEnd(statuses: ResponseList[Status], statusesCount: Int) = {
+    val isNotInTime = statuses.last.getCreatedAt.getTime < timeFilter.fromTime.getMillis
+    val isEnough = statusesCount > countFilter.maxCount
+    isNotInTime ||  isEnough
   }
 
   override def name: String = s"TwitterPostsTask(profileId=$profileId)"

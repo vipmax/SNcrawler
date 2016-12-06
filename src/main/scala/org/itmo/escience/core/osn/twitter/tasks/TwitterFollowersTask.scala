@@ -43,7 +43,7 @@ case class TwitterFollowersTask(profileId: Any, saverInfo: SaverInfo)(implicit a
       }
       _newRequestsCount += 1
 
-      logger.debug("followers length = " + followers.getIDs.length)
+      logger.debug(s"followers length = ${followers.getIDs.length} Limits = ${followers.getRateLimitStatus}")
 
       val data = followers.getIDs.map{ id => new BasicDBObject()
         .append("key", s"${profileId}_$id")

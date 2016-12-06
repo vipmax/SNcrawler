@@ -1,0 +1,135 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <title>map</title>
+
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/leaflet/0.7.3/leaflet.js"></script>
+    <script src="https://ajax.googleapis.com/ajax/libs/jquery/1.11.1/jquery.min.js"></script>
+    <script src="https://maxcdn.bootstrapcdn.com/bootstrap/3.2.0/js/bootstrap.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/Leaflet.awesome-markers/2.0.2/leaflet.awesome-markers.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/leaflet.markercluster/0.4.0/leaflet.markercluster-src.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/leaflet.markercluster/0.4.0/leaflet.markercluster.js"></script>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/leaflet/0.7.3/leaflet.css"/>
+    <link rel="stylesheet" href="https://maxcdn.bootstrapcdn.com/bootstrap/3.2.0/css/bootstrap.min.css"/>
+    <link rel="stylesheet" href="https://maxcdn.bootstrapcdn.com/bootstrap/3.2.0/css/bootstrap-theme.min.css"/>
+    <link rel="stylesheet" href="https://maxcdn.bootstrapcdn.com/font-awesome/4.1.0/css/font-awesome.min.css"/>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/Leaflet.awesome-markers/2.0.2/leaflet.awesome-markers.css"/>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/leaflet.markercluster/0.4.0/MarkerCluster.Default.css"/>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/leaflet.markercluster/0.4.0/MarkerCluster.css"/>
+    <link rel="stylesheet" href="https://raw.githubusercontent.com/python-visualization/folium/master/folium/templates/leaflet.awesome.rotate.css"/>
+
+    <style>
+        html, body {
+            width: 100%;
+            height: 100%;
+            margin: 0;
+            padding: 0;
+        }
+
+        p {
+            top: 100px;
+            text-align: center;
+        }
+
+        #map{
+            position : relative;
+            width : 100.0%;
+            height: 100.0%;
+            left: 0.0%;
+            top: 0.0%;
+        }
+    </style>
+
+    <script>
+        var points = [
+            [59.960775443245, 30.291150358247],
+            [59.923357507689, 30.322085091884],
+            [59.911323743754, 30.448604116894],
+            [59.836090131163, 30.141214354018],
+            [60.034799481026, 30.418311615205],
+            [59.852680545195, 30.321727756297],
+            [59.950001227502, 30.316705653383],
+            [59.979837970956, 30.253871087747],
+            [59.946092943062, 30.373334783062],
+            [60.051399956648, 30.332545646840],
+            [59.938614524268, 30.256101961003],
+            [59.872207816452, 30.392331282609],
+            [59.927956527761, 30.350732247115],
+            [59.937670704443, 30.290598604615],
+            [59.867736637349, 30.261029869948],
+            [59.986317673403, 30.203436668401],
+            [59.865268445215, 30.462916154680],
+            [59.857490442538, 30.198689944420],
+            [60.006958918971, 30.253230440258],
+            [60.004666354777, 30.393117953122],
+            [59.897066700000, 30.512268800000],
+            [60.002450213012, 30.296759587566],
+            [59.937601231337, 30.328635511572],
+            [59.924132527857, 30.474065052244],
+            [59.900809715067, 30.274809911570],
+            [59.934500999469, 30.311145080324],
+            [59.972965305884, 30.305241768612],
+            [59.951907720329, 30.407626693086],
+            [59.938851792776, 30.214477694732],
+            [59.848212397037, 30.393073824611],
+            [60.001660224984, 30.358026544989],
+            [59.834601431997, 30.344614931901],
+            [60.050068715167, 30.378744945851],
+            [59.940737449264, 30.341551072004],
+            [59.942559230292, 30.420630343059],
+            [59.869320329607, 30.341797824721],
+            [59.832107759421, 30.515446839626]
+        ]
+    </script>
+
+
+</head>
+<body>
+
+<div class="map" id="map"></div>
+<script >
+        var southWest = L.latLng(-90, -180);
+        var northEast = L.latLng(90, 180);
+        var bounds = L.latLngBounds(southWest, northEast);
+
+        var map = L.map('map', {
+            center:[59.943082, 30.296922],
+            zoom: 3,
+            maxBounds: bounds,
+            layers: [],
+            crs: L.CRS.EPSG3857,
+            zoomControl:false,
+            attributionControl:false
+        });
+
+        L.tileLayer('http://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}.png', {
+            subdomains: 'abcd',
+            maxZoom: 19
+        }).addTo(map);
+
+        var data = "";
+
+        $.ajax({
+            type: "GET",
+            url: "http://localhost:8000/allclusters.csv",
+            dataType: "text",
+            success: function(d) {
+                console.log(d);
+                data = d;
+
+                var points = data.split("\n").map(function(l) { return l.split(",")})
+                $.each(points, function(key, point){
+                    var lat = parseFloat(point[0])
+                    var lon = parseFloat(point[1])
+                    console.log(key,lat,lon)
+
+                    var marker = L.marker([lat,lon],{ icon: new L.Icon.Default()}).addTo(map);
+                });
+
+            }
+        });
+
+    </script>
+
+</body>
+</html>

@@ -67,11 +67,11 @@ class TwitterBalancer extends Actor {
 
       maybeTask match {
         case Some(task) =>
-          logger.info(s"Found task=${task.name} for workerTaskRequest. Sending to worker $sender")
+          logger.debug(s"Found task=${task.name} for workerTaskRequest. Sending to worker $sender")
           sender ! task
 
         case None =>
-          logger.info(s"Task not found for workerTaskRequest $workerTaskRequest")
+          logger.debug(s"Task not found for workerTaskRequest $workerTaskRequest")
           addFreeWorker(sender, workerTaskRequest)
       }
 
@@ -83,14 +83,14 @@ class TwitterBalancer extends Actor {
 
       freeWorker match {
         case Some(worker) =>
-          logger.info(s"Sending task ${task.name} to worker $worker")
+          logger.debug(s"Sending task ${task.name} to worker $worker")
 
           worker ! task
           removeFreeWorker(worker,task.taskType())
           actualTasksCount += 1
 
         case None =>
-          logger.info(s"freeWorker not found for task type: ${task.taskType()}")
+          logger.debug(s"freeWorker not found for task type: ${task.taskType()}")
 
           enqueueTask(task)
           actualTasksCount += 1

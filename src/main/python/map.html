@@ -1,0 +1,145 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <title>map</title>
+
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/leaflet/0.7.3/leaflet.js"></script>
+    <script src="https://ajax.googleapis.com/ajax/libs/jquery/1.11.1/jquery.min.js"></script>
+    <script src="https://maxcdn.bootstrapcdn.com/bootstrap/3.2.0/js/bootstrap.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/Leaflet.awesome-markers/2.0.2/leaflet.awesome-markers.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/leaflet.markercluster/0.4.0/leaflet.markercluster-src.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/leaflet.markercluster/0.4.0/leaflet.markercluster.js"></script>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/leaflet/0.7.3/leaflet.css"/>
+    <link rel="stylesheet" href="https://maxcdn.bootstrapcdn.com/bootstrap/3.2.0/css/bootstrap.min.css"/>
+    <link rel="stylesheet" href="https://maxcdn.bootstrapcdn.com/bootstrap/3.2.0/css/bootstrap-theme.min.css"/>
+    <link rel="stylesheet" href="https://maxcdn.bootstrapcdn.com/font-awesome/4.1.0/css/font-awesome.min.css"/>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/Leaflet.awesome-markers/2.0.2/leaflet.awesome-markers.css"/>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/leaflet.markercluster/0.4.0/MarkerCluster.Default.css"/>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/leaflet.markercluster/0.4.0/MarkerCluster.css"/>
+    <link rel="stylesheet" href="https://raw.githubusercontent.com/python-visualization/folium/master/folium/templates/leaflet.awesome.rotate.css"/>
+
+    <script src="L.CanvasOverlay.js"></script>
+
+    <style>
+        html, body {
+            width: 100%;
+            height: 100%;
+            margin: 0;
+            padding: 0;
+        }
+
+        p {
+            top: 100px;
+            text-align: center;
+        }
+
+        #map{
+            position : relative;
+            width : 100.0%;
+            height: 100.0%;
+            left: 0.0%;
+            top: 0.0%;
+        }
+    </style>
+
+
+
+
+</head>
+<body>
+
+<div class="map" id="map"></div>
+<script >
+        var southWest = L.latLng(-90, -180);
+        var northEast = L.latLng(90, 180);
+        var bounds = L.latLngBounds(southWest, northEast);
+
+        var maxzoom = 15;
+        var map = L.map('map', {
+            center:[59.943082, 30.296922],
+            zoom: maxzoom,
+            maxBounds: bounds,
+            layers: [],
+            crs: L.CRS.EPSG3857,
+            zoomControl:false,
+            attributionControl:false,
+            preferCanvas: true
+        });
+
+//        var TILE = "http://{s}.sm.mapstack.stamen.com/(toner-lite,$fff[difference],$fff[@23],$fff[hsl-saturation@20])/{z}/{x}/{y}.png"
+        var TILE = 'http://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}.png'
+        L.tileLayer(TILE, {
+            subdomains: 'abcd',
+            maxZoom: 19
+        }).addTo(map);
+
+
+
+</script>
+
+<script>
+    var indata = "";
+
+    $.ajax({
+        type: "GET",
+//        url: "http://192.168.0.118:8001/clustered_data.json",
+        url: "http://localhost:8000/all_clustered_data.json",
+        dataType: "text",
+        success: function(d) {
+            console.log(d);
+            indata = d;
+
+            var json_data = d.split("\n").map(function(l) { return JSON.parse(l)});
+
+            var colors = {};
+
+            $.each(json_data, function(key, data){
+                var lat = parseFloat(data.cluster_centroid [0]);
+                var lon = parseFloat(data.cluster_centroid [1]);
+                console.log(key,lat,lon);
+                colors[key] = `${parseInt(Math.random()*255)},${parseInt(Math.random()*255)},${parseInt(Math.random()*255)}`;
+
+//                L.marker([lat,lon],{ icon: new L.Icon.Default()}).addTo(map);
+            });
+
+            L.canvasOverlay()
+                .drawing(drawingOnCanvas)
+                .addTo(map);
+
+
+            function draw(ctx, canvasOverlay, params, d, radius, color, transparency) {
+                if (params.bounds.contains([d[0], d[1]])) {
+                    dot = canvasOverlay._map.latLngToContainerPoint([d[0], d[1]]);
+                    ctx.fillStyle = "rgba("+color+", "+transparency+")";
+                    ctx.beginPath();
+                    ctx.arc(dot.x, dot.y, radius, 0, Math.PI * 2);
+                    ctx.fill();
+                    ctx.closePath();
+                }
+            }
+
+            function drawingOnCanvas(canvasOverlay, params) {
+                var ctx = params.canvas.getContext('2d');
+                ctx.clearRect(0, 0, params.canvas.width, params.canvas.height);
+
+
+//                var color = "{},{},{}".format(Math.random()*255,Math.random()*255,Math.random()*255);
+                $.each(json_data, function(key, data){
+                    var color = colors[key];
+                    console.log(color);
+
+                    draw(ctx, canvasOverlay, params, data.cluster_centroid, 10, color, data.cluster_points_count/10);
+
+                    for (var i = 0; i < data.cluster_points.length; i++) {
+                        var point = data.cluster_points[i];
+                        draw(ctx, canvasOverlay,params, point, 5, color, 0.5);
+                    }
+                });
+
+            }
+        }
+    });
+</script>
+
+</body>
+</html>
