@@ -1,5 +1,7 @@
 package org.itmo.escience.core.osn.twitter.tasks
 
+import akka.actor.ActorRef
+import com.mongodb.BasicDBObject
 import org.itmo.escience.core.osn.common.Filters.{CountFilter, TimeFilter}
 import org.itmo.escience.core.osn.common.{State, TwitterTask}
 import org.itmo.escience.dao.SaverInfo
@@ -10,9 +12,12 @@ import scala.collection.JavaConversions._
 /**
   * Created by vipmax on 29.11.16.
   */
+case class TwitterPostsTaskResponse(profileId: Any, posts: List[BasicDBObject])
+
 case class TwitterPostsTask(profileId: Any,
                             timeFilter: TimeFilter = TimeFilter(),
                             countFilter: CountFilter = CountFilter(3200),
+                            responseActor: ActorRef = null,
                             saverInfo: SaverInfo)(implicit app: String) extends TwitterTask with State{
 
   /* state */
@@ -46,18 +51,23 @@ case class TwitterPostsTask(profileId: Any,
           twitter.timelines().getUserTimeline(id, paging)
         case id: Long =>
           twitter.timelines().getUserTimeline(id, paging)
+        case id: Int =>
+          twitter.timelines().getUserTimeline(id, paging)
       }
       _newRequestsCount += 1
       statusesCount += statuses.length
 
       logger.info(s"Saving ${statuses.length} tweets for $profileId Limits = ${statuses.getRateLimitStatus}")
-      val data = TwitterTaskUtil.mapStatuses(statuses.toList)
+      val posts = TwitterTaskUtil.mapStatuses(statuses.toList)
 
       Option(saver) match {
-        case Some(s) => data.foreach(s.save)
+        case Some(s) => posts.foreach(s.save)
         case None => logger.debug(s"No saver for task $name")
       }
-
+      Option(responseActor) match {
+        case Some(actor) => actor ! TwitterPostsTaskResponse(profileId, posts)
+        case None => logger.debug(s"No response Actor for task $name")
+      }
       if (statuses.isEmpty || isEnd(statuses, statusesCount) ) {
         logger.debug(s"Ended for $profileId. statusesCount = $statusesCount")
         end = true

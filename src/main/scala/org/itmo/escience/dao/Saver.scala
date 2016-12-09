@@ -1,5 +1,7 @@
 package org.itmo.escience.dao
 
+import java.io.FileWriter
+
 import com.mongodb.{BasicDBObject, MongoClient}
 import org.apache.kafka.clients.producer.{KafkaProducer, ProducerRecord}
 import org.apache.kafka.common.serialization.StringSerializer
@@ -17,6 +19,7 @@ trait Saver {
 }
 
 class SaverInfo
+case class FileSaverInfo(filePath:String) extends SaverInfo
 case class MongoSaverInfo(endpoint:String, db:String, collection:String) extends SaverInfo
 case class MongoSaverInfo2(endpoint:String, db:String, collection:String, collection2:String) extends SaverInfo
 case class KafkaSaverInfo(endpoint:String, topic:String) extends SaverInfo
@@ -104,16 +107,15 @@ case class RedisSaver(redisEndpoint: String, collection: String, updateValue: Bo
 }
 
 case class MongoSaver(host: String, db: String, collectionName: String) extends Saver {
-  val dao = new MongoDao(host, db)
   val collection = new MongoClient(host).getDatabase(db).getCollection(collectionName, classOf[BasicDBObject])
 
   override def save(data: Any) {
     data match {
       case d:BasicDBObject =>
         val key = d.getString("key", java.util.UUID.randomUUID.toString.substring(0,20))
-//        logger.debug(s"Needs to save BasicDBObject with key=$key and data=${d.toJson}")
-        val updateResult = dao.update(collection, key, d)
-//        logger.debug(updateResult)
+        logger.trace(s"Needs to save BasicDBObject with key=$key and data=${d.toJson}")
+        val updateResult = MongoUtil.update(collection, key, d)
+        logger.trace(updateResult)
 
       case _ =>
         logger.debug(s"Needs to save unknown data ")
@@ -122,7 +124,6 @@ case class MongoSaver(host: String, db: String, collectionName: String) extends 
 }
 
 case class MongoSaver2(host: String, db: String, collectionName: String) extends Saver {
-  val dao = new MongoDao(host, db)
   val collection = new MongoClient(host).getDatabase(db).getCollection(collectionName, classOf[BasicDBObject])
 
   override def save(data: Any) {
@@ -130,11 +131,31 @@ case class MongoSaver2(host: String, db: String, collectionName: String) extends
       case d:BasicDBObject =>
         val key = d.getString("key", java.util.UUID.randomUUID.toString.substring(0,20))
 //        logger.debug(s"Needs to save BasicDBObject with key=$key and data=${d.toJson}")
-        val updateResult = dao.update(collection, key, d)
+        val updateResult = MongoUtil.update(collection, key, d)
 //        logger.debug(updateResult)
 
       case _ =>
         logger.debug(s"Needs to save unknown data ")
+    }
+  }
+}
+
+case class FileSaver(path: String) extends Saver {
+  val fw = new FileWriter(path, true)
+
+  override def save(data: Any) {
+    data match {
+      case d:BasicDBObject =>
+        val key = d.getString("key", java.util.UUID.randomUUID.toString.substring(0,20))
+        logger.trace(s"Needs to save BasicDBObject with key=$key and data=${d.toJson}")
+
+        fw.synchronized {
+          fw.write(d.toJson + "\n")
+          fw.flush()
+        }
+
+      case _ =>
+        logger.debug("Needs to save unknown data")
     }
   }
 }

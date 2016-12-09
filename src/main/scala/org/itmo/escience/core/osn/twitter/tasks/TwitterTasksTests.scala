@@ -1,7 +1,7 @@
 package org.itmo.escience.core.osn.twitter.tasks
 
 import akka.actor.{ActorSystem, Props}
-import org.itmo.escience.core.actors.TwitterSequentialTypedWorkerActor
+import org.itmo.escience.core.actors.twitter.TwitterSequentialTypedWorkerActor
 import org.itmo.escience.core.balancers.{Init, TwitterBalancer}
 import org.itmo.escience.dao.MongoSaverInfo
 import org.itmo.escience.util.Util

@@ -2,7 +2,7 @@ package org.itmo.escience.core.actors
 
 import akka.actor.{Actor, ActorRef, Props}
 import org.apache.log4j.Logger
-import org.itmo.escience.core.actors.TwitterSequentialTypedWorkerActor.TwitterTypedWorkerTaskRequest
+import org.itmo.escience.core.actors.twitter.TwitterSequentialTypedWorkerActor.TwitterTypedWorkerTaskRequest
 import org.itmo.escience.core.balancers.Init
 import org.itmo.escience.core.osn.common.{TwitterAccount, TwitterTask}
 import org.itmo.escience.core.osn.twitter.tasks.TwitterTaskUtil

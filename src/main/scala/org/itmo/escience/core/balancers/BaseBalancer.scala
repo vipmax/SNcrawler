@@ -122,8 +122,8 @@ case class WorkerIsReady(worker: ActorRef)
 case class App(name:String, var quantumCount:Int = 1, var quantumLeft:Int = 1,
                var avgExecutionTime:Double = -1){
 
-  private val tasksByType: mutable.LinkedHashMap[String, mutable.LinkedHashSet[Task]] = mutable.LinkedHashMap[String, mutable.LinkedHashSet[Task]]()
-  private val taskList: mutable.LinkedHashSet[Task] = mutable.LinkedHashSet[Task]()
+  val tasksByType: mutable.LinkedHashMap[String, mutable.LinkedHashSet[Task]] = mutable.LinkedHashMap[String, mutable.LinkedHashSet[Task]]()
+  val taskList: mutable.LinkedHashSet[Task] = mutable.LinkedHashSet[Task]()
 
   /*
    required for two-level quantum typed balancer

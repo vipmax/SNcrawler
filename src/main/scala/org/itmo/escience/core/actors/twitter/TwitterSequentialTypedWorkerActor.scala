@@ -1,8 +1,8 @@
-package org.itmo.escience.core.actors
+package org.itmo.escience.core.actors.twitter
 
 import akka.actor.{Actor, ActorRef, Props}
 import org.apache.log4j.Logger
-import org.itmo.escience.core.actors.TwitterSequentialTypedWorkerActor.TwitterTypedWorkerTaskRequest
+import org.itmo.escience.core.actors.twitter.TwitterSequentialTypedWorkerActor.TwitterTypedWorkerTaskRequest
 import org.itmo.escience.core.balancers.{Init, UpdateSlots}
 import org.itmo.escience.core.osn.common.{Task, TwitterAccount, TwitterTask}
 import org.itmo.escience.core.osn.twitter.tasks.TwitterTaskUtil
@@ -33,7 +33,7 @@ class TwitterSequentialTypedWorkerActor(account: TwitterAccount,
                                        ) extends Actor {
   val logger = Logger.getLogger(this.getClass)
   /* tasktype and requests available */
-  val slots = mutable.Map[String, Int]()
+  val slots = mutable.Map[String, Int](requestsMaxPerTask.toList: _*)
   val blockedTime: FiniteDuration = 15 minutes
 
   var twitter: Twitter = {
@@ -59,23 +59,20 @@ class TwitterSequentialTypedWorkerActor(account: TwitterAccount,
         task.run(twitter)
 
         /* slots updating */
-        if (!slots.keySet.contains(task.taskType()))
-          slots(task.taskType()) = requestsMaxPerTask(task.taskType()) - task.newRequestsCount()
-        else
-          slots(task.taskType()) -= task.newRequestsCount()
+        slots(task.taskType()) -= task.newRequestsCount()
 
       } catch {
         case e: TwitterException if e.getRateLimitStatus.getRemaining <= 0 =>
           slots(task.taskType()) = 0
-          logger.error(s"Trying once more for task $task!!!")
+          logger.error(s"RateLimit!!! ${e.getRateLimitStatus} Trying once more for task $task!!!")
           Thread.sleep(1000)
           balancer ! task
 
         case e: Exception =>
-          logger.error(s"Ignoring exception for task $task")
+          logger.error(s"Ignoring exception for task $task $e")
       }
 
-      logger.debug(slots)
+      logger.debug(s"slots = $slots")
 
       /* asking new task */
       val freeSlots = slots.filter { case (_, requestsLeft) => requestsLeft > 0 }.keys.toSet
@@ -113,9 +110,13 @@ class TwitterSequentialTypedWorkerActor(account: TwitterAccount,
     task.logger = Logger.getLogger(s"${task.appname} ${task.name}")
 
     task.saverInfo match {
+      case FileSaverInfo(filePath: String) =>
+        logger.debug(s"Found saver {file $filePath}")
+        task.saver = ConnectionManager.getFileSaver(filePath)
+
       case MongoSaverInfo(endpoint: String, db: String, collection: String) =>
         logger.debug(s"Found saver {mongo $endpoint, $db, $collection}")
-        task.saver = ConnectionManager.getMongoConnection(endpoint, db, collection)
+        task.saver = ConnectionManager.getMongoSaver(endpoint, db, collection)
 
       case MongoSaverInfo2(endpoint: String, db: String, collection: String, collection2: String) =>
         logger.debug(s"Found saver {mongo $endpoint, $db, $collection}")
@@ -137,13 +138,4 @@ class TwitterSequentialTypedWorkerActor(account: TwitterAccount,
 }
 
 
-object ConnectionManager{
-  private val mongoPool = mutable.HashMap[String, MongoSaver]()
 
-  def getMongoConnection(host: String, db: String, collectionName: String) = {
-    val key = s"$host $db $collectionName"
-    val mongoSaver = mongoPool.getOrElse(key, MongoSaver(host, db, collectionName))
-    mongoPool(key) = mongoSaver
-    mongoSaver
-  }
-}

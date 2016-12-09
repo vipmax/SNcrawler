@@ -1,5 +1,6 @@
 package org.itmo.escience.core.osn.twitter.tasks
 
+import akka.actor.ActorRef
 import com.mongodb.BasicDBObject
 import org.itmo.escience.core.osn.common.{State, TwitterTask}
 import org.itmo.escience.dao.SaverInfo
@@ -8,7 +9,12 @@ import twitter4j.Twitter
 /**
   * Created by vipmax on 29.11.16.
   */
-case class TwitterFollowersTask(profileId: Any, saverInfo: SaverInfo)(implicit app: String) extends TwitterTask with State {
+case class TwitterFollowersTaskResponse(profileId: Any, followers: Array[Long])
+
+case class TwitterFollowersTask(profileId: Any,
+                                var count: Int = 5000,
+                                responseActor: ActorRef = null,
+                                saverInfo: SaverInfo)(implicit app: String) extends TwitterTask with State {
 
   /* state */
   var offset = -1L
@@ -17,6 +23,7 @@ case class TwitterFollowersTask(profileId: Any, saverInfo: SaverInfo)(implicit a
   override def appname: String = app
 
   override def run(network: AnyRef) {
+    logger.debug(s"Starting  $name task")
     network match {
       case twitter: Twitter => extract(twitter)
       case _ => logger.debug("No TwitterTemplate object found")
@@ -27,25 +34,25 @@ case class TwitterFollowersTask(profileId: Any, saverInfo: SaverInfo)(implicit a
     var end = false
     /* read state */
     var localOffset = offset
-    val maxPostsCount = 20
+
+    var followersCount = profileId match {
+      case id: String => twitter.showUser(id).getFollowersCount
+      case id: Long =>   twitter.showUser(id).getFollowersCount
+      case id: Int =>    twitter.showUser(id).getFollowersCount
+    }
 
     while (!end) {
-
-      logger.debug(localOffset)
-
       val followers = profileId match {
-        case id: String =>
-          logger.debug("FollowersCount = " + twitter.showUser(id).getFollowersCount)
-          twitter.friendsFollowers.getFollowersIDs(id, localOffset)
-        case id: Long =>
-          logger.debug("FollowersCount = " + twitter.showUser(id).getFollowersCount)
-          twitter.friendsFollowers.getFollowersIDs(id, localOffset)
+        case id: String => twitter.friendsFollowers.getFollowersIDs(id, localOffset)
+        case id: Long =>   twitter.friendsFollowers.getFollowersIDs(id, localOffset)
+        case id: Int =>    twitter.friendsFollowers.getFollowersIDs(id, localOffset)
       }
       _newRequestsCount += 1
+      count -= followers.getIDs.length
 
-      logger.debug(s"followers length = ${followers.getIDs.length} Limits = ${followers.getRateLimitStatus}")
+      logger.debug(s"Got  = ${followers.getIDs.length} followers (remainig $count/$followersCount) RateLimitStatus= ${followers.getRateLimitStatus}")
 
-      val data = followers.getIDs.map{ id => new BasicDBObject()
+      val data: Array[BasicDBObject] = followers.getIDs.map{ id => new BasicDBObject()
         .append("key", s"${profileId}_$id")
         .append("profile", profileId)
         .append("follower", id)
@@ -55,9 +62,13 @@ case class TwitterFollowersTask(profileId: Any, saverInfo: SaverInfo)(implicit a
         case Some(s) => data.foreach(s.save)
         case None => logger.debug(s"No saver for task $name")
       }
+      Option(responseActor) match {
+        case Some(actor) => actor ! TwitterFollowersTaskResponse(profileId, followers.getIDs)
+        case None => logger.debug(s"No response Actor for task $name")
+      }
 
       localOffset = followers.getNextCursor
-      if(!followers.hasNext) end = true
+      if(!followers.hasNext || count <= 0) end = true
 
       saveState(Map("offset" -> localOffset))
     }

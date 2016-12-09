@@ -3,8 +3,8 @@ package org.itmo.escience.core.balancers
 import akka.actor.{Actor, ActorRef, ActorSystem, Props}
 import com.typesafe.config.ConfigFactory
 import org.apache.log4j.Logger
-import org.itmo.escience.core.actors.TwitterSequentialTypedWorkerActor.TwitterTypedWorkerTaskRequest
 import org.itmo.escience.core.actors.TwitterSimpleWorkerActor
+import org.itmo.escience.core.actors.twitter.TwitterSequentialTypedWorkerActor.TwitterTypedWorkerTaskRequest
 import org.itmo.escience.core.osn.common.{Task, TwitterTask}
 import org.itmo.escience.util.Util
 import org.itmo.escience.util.Util.{Continue, Stop, _}
@@ -67,30 +67,30 @@ class TwitterBalancer extends Actor {
 
       maybeTask match {
         case Some(task) =>
-          logger.debug(s"Found task=${task.name} for workerTaskRequest. Sending to worker $sender")
+          logger.trace(s"Found task=${task.name} for workerTaskRequest. Sending to worker $sender")
           sender ! task
 
         case None =>
-          logger.debug(s"Task not found for workerTaskRequest $workerTaskRequest")
+          logger.trace(s"Task not found for workerTaskRequest $workerTaskRequest")
           addFreeWorker(sender, workerTaskRequest)
       }
 
 
     case task:TwitterTask  =>
-      logger.debug(s"Got ${task.getClass.getSimpleName}(${task.name})")
+      logger.trace(s"Got ${task.getClass.getSimpleName}(${task.name})")
 
       val freeWorker = getFreeWorker(task.taskType())
 
       freeWorker match {
         case Some(worker) =>
-          logger.debug(s"Sending task ${task.name} to worker $worker")
+          logger.trace(s"Sending task ${task.name} to worker $worker")
 
           worker ! task
           removeFreeWorker(worker,task.taskType())
           actualTasksCount += 1
 
         case None =>
-          logger.debug(s"freeWorker not found for task type: ${task.taskType()}")
+          logger.trace(s"freeWorker not found for task type: ${task.taskType()}")
 
           enqueueTask(task)
           actualTasksCount += 1
@@ -133,9 +133,11 @@ class TwitterBalancer extends Actor {
   def enqueueTask(task: Task) = {
     val app = App(task.appname)
 
+
     if (!apps.contains(app)) {
       app.addTask(task)
       apps += app
+
     }
     else {
       val currentApp = apps.find(_.equals(app)).get
@@ -147,6 +149,9 @@ class TwitterBalancer extends Actor {
       taskCounters.put(taskType, 0)
     }
     taskCounters(taskType) += 1
+
+    val balanserState = apps.map(a => (a.name, s"tasks{${a.tasksByType.map { case (tT, tQueue) => s"$tT ->${tQueue.size}" }.mkString("; ")}}")).mkString("\n")
+    logger.trace("balanserState = "+balanserState)
   }
 
   def dequeueTask(workerTaskRequest: TwitterTypedWorkerTaskRequest): Option[Task] = {
