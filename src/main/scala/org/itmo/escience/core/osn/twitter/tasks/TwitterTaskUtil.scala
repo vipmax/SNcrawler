@@ -14,6 +14,8 @@ object TwitterTaskUtil {
     val slots = Map(
       "TwitterFollowersTask" -> 15,
       "TwitterPostsTask" -> 900,
+      "TwitterRePostsTask" -> 75,
+      "TwitterRePostersTask" -> 75,
       "TwitterSearchPostsTask" -> 180,
       "TwitterProfileTask" -> 900
     )
@@ -25,7 +27,9 @@ object TwitterTaskUtil {
       "TwitterFollowersTask",
       "TwitterProfileTask",
       "TwitterSearchPostsTask",
-      "TwitterPostsTask"
+      "TwitterPostsTask",
+      "TwitterRePostsTask",
+      "TwitterRePostersTask"
     )
     println(tasks)
     tasks

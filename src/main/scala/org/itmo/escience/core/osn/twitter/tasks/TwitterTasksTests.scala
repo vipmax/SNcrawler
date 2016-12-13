@@ -30,6 +30,46 @@ object TwitterPostsTaskTest {
     )
   }
 }
+object TwitterRePostsTaskTest {
+  def main(args: Array[String]) {
+    val actorSystem = ActorSystem("TwitterBalancer")
+    val balancer = actorSystem.actorOf(Props[TwitterBalancer])
+
+    val accounts = Util.getTwitterAccounts().take(1)
+
+    accounts foreach { account =>
+      actorSystem.actorOf(TwitterSequentialTypedWorkerActor.props(account)).tell(Init(), balancer)
+    }
+
+    implicit val appname = "testApp"
+
+    balancer ! TwitterRePostsTask(
+      statusId = 806123544878915584L,
+      saverInfo = MongoSaverInfo(endpoint = "192.168.13.133", db = "test_db", collection = "test_retweets")
+    )
+  }
+}
+
+object TwitterRePostersTaskTest {
+  def main(args: Array[String]) {
+    val actorSystem = ActorSystem("TwitterBalancer")
+    val balancer = actorSystem.actorOf(Props[TwitterBalancer])
+
+    val accounts = Util.getTwitterAccounts().take(1)
+
+    accounts foreach { account =>
+      actorSystem.actorOf(TwitterSequentialTypedWorkerActor.props(account)).tell(Init(), balancer)
+    }
+
+    implicit val appname = "testApp"
+
+    balancer ! TwitterRePostersTask(
+      statusId = 806123544878915584L,
+      count = 10000,
+      saverInfo = MongoSaverInfo(endpoint = "192.168.13.133", db = "test_db", collection = "test_reposters")
+    )
+  }
+}
 
 
 object TwitterFollowersTaskTest {
