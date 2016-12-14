@@ -68,7 +68,7 @@ object TestRemoteProfile {
 object TestFollowers {
   def main(args: Array[String]) {
     val actorSystem = ActorSystem("VkBalancer")
-    val balancer = actorSystem.actorOf(Props[TwitterBalancer])
+    val balancer = actorSystem.actorOf(Props[SimpleBalancer])
 
     actorSystem.actorOf(Props[SimpleWorkerActor]).tell(Init(), balancer)
 
@@ -84,7 +84,7 @@ object TestFollowers {
 object TestFollowersExtended {
   def main(args: Array[String]) {
     val actorSystem = ActorSystem("VkBalancer")
-    val balancer = actorSystem.actorOf(Props[TwitterBalancer])
+    val balancer = actorSystem.actorOf(Props[SimpleBalancer])
 
     actorSystem.actorOf(Props[SimpleWorkerActor]).tell(Init(), balancer)
 
@@ -100,7 +100,7 @@ object TestFollowersExtended {
 object TestPosts {
   def main(args: Array[String]) {
     val actorSystem = ActorSystem("VkBalancer")
-    val balancer = actorSystem.actorOf(Props[TwitterBalancer])
+    val balancer = actorSystem.actorOf(Props[SimpleBalancer])
 
     actorSystem.actorOf(Props[SimpleWorkerActor]).tell(Init(), balancer)
 
@@ -113,10 +113,43 @@ object TestPosts {
   }
 }
 
+object TestLikes {
+  def main(args: Array[String]) {
+    val actorSystem = ActorSystem("VkBalancer")
+    val balancer = actorSystem.actorOf(Props[SimpleBalancer])
+
+    actorSystem.actorOf(SimpleWorkerActor.props()).tell(Init(), balancer)
+
+    implicit val appname = "testApp"
+
+    balancer ! VkLikesTask(
+      ownerId = "-32370614",
+      itemId = "52196",
+      saverInfo = MongoSaverInfo(endpoint = "192.168.13.133", db = "test_db", collection = "test_likes")
+    )
+  }
+}
+object TestReposts {
+  def main(args: Array[String]) {
+    val actorSystem = ActorSystem("VkBalancer")
+    val balancer = actorSystem.actorOf(Props[SimpleBalancer])
+
+    actorSystem.actorOf(SimpleWorkerActor.props()).tell(Init(), balancer)
+
+    implicit val appname = "testApp"
+
+    balancer ! VkRepostsTask(
+      ownerId = "-86529522",
+      postId = "71509",
+      saverInfo = MongoSaverInfo(endpoint = "192.168.13.133", db = "test_db", collection = "test_reposts")
+    )
+  }
+}
+
 object TestSearchPosts {
   def main(args: Array[String]) {
     val actorSystem = ActorSystem("VkBalancer")
-    val balancer = actorSystem.actorOf(Props[TwitterBalancer])
+    val balancer = actorSystem.actorOf(Props[SimpleBalancer])
 
     actorSystem.actorOf(Props[SimpleWorkerActor]).tell(Init(), balancer)
 
