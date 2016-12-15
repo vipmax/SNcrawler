@@ -86,7 +86,7 @@ class SimpleBalancer extends Actor {
           actualTasksCount += 1
 
         case None =>
-          logger.info(s"freeWorker not found for task type: ${task.name}")
+          logger.info(s"freeWorker not found for task type: ${task.taskType()}")
 
           enqueueTask(task)
           actualTasksCount += 1
@@ -97,9 +97,14 @@ class SimpleBalancer extends Actor {
 
 
   def getFreeWorker(slot: String): Option[ActorRef] = {
-    if (!freeWorkers.contains(slot))
-      return None
+    if(freeWorkers.contains("anytask")) return getAndRemoveFreeWorker("anytask")
+    if (!freeWorkers.contains(slot))    return None
 
+    val freeWorker = getAndRemoveFreeWorker(slot)
+    return freeWorker
+  }
+
+  private def getAndRemoveFreeWorker(slot: String) = {
     val workers = freeWorkers(slot)
     if (workers.nonEmpty) {
       val worker = workers.head
@@ -119,7 +124,11 @@ class SimpleBalancer extends Actor {
   }
 
   def addFreeWorker(freeWorker: ActorRef, workerTaskRequest: SimpleWorkerTaskRequest) = {
-    val tt = workerTaskRequest.task.taskType()
+    val tt = Option(workerTaskRequest.task) match {
+      case Some(t) => t.taskType()
+      case None => "anytask"
+    }
+
     if (!freeWorkers.contains(tt)) freeWorkers.put(tt, mutable.Set[ActorRef]())
     freeWorkers(tt) += freeWorker
   }
@@ -214,6 +223,6 @@ class SimpleBalancer extends Actor {
   }
 
   def removeFreeWorker(worker: ActorRef, tasktype:String) = {
-    freeWorkers(tasktype) -= worker
+    if(freeWorkers.contains(tasktype))freeWorkers(tasktype) -= worker
   }
 }

@@ -26,7 +26,6 @@ case class VkProfileTask(profileIds: List[String], saverInfo: SaverInfo)(implici
     "can_send_friend_request, is_favorite, is_hidden_from_feed, timezone, " +
     "screen_name, maiden_name, crop_photo, is_friend, friend_status, career," +
     " military, blacklisted, blacklisted_by_me"
-  var result: BasicDBObject = null
 
   override def appname: String = app
 
@@ -42,9 +41,8 @@ case class VkProfileTask(profileIds: List[String], saverInfo: SaverInfo)(implici
         .timeout(60 * 1000 * 10, 60 * 1000 * 10)
         .execute().body
 
-      logger.debug(json)
       val profiles = parse(json)
-      logger.debug(profiles)
+      logger.debug(s"Got ${profiles.length} user profiles")
       save(profiles)
     }
 
@@ -56,22 +54,20 @@ case class VkProfileTask(profileIds: List[String], saverInfo: SaverInfo)(implici
         .timeout(60 * 1000 * 10, 60 * 1000 * 10)
         .execute().body
 
-      logger.debug(json)
-      val profiles = parse(json).map { case bdo: BasicDBObject =>
-        bdo.append("key", s"-${bdo.getInt("id")}")
-      }
-      logger.debug(profiles)
+      val profiles = parse(json).map { bdo: BasicDBObject => bdo.append("key", s"-${bdo.getInt("id")}") }
+      logger.debug(s"Got ${profiles.length} group profiles")
       save(profiles)
     }
   }
 
   def parse(json: String): Array[BasicDBObject] = {
-    try { JSON.parse(json)
-            .asInstanceOf[DBObject]
-            .get("response").asInstanceOf[BasicDBList]
-            .toArray().map { case bdo: BasicDBObject =>
-              bdo.append("key", s"${bdo.getInt("id")}")
-            }
+    try {
+      JSON.parse(json)
+        .asInstanceOf[DBObject]
+        .get("response").asInstanceOf[BasicDBList]
+        .toArray().map { case bdo: BasicDBObject =>
+          bdo.append("key", s"${bdo.getInt("id")}")
+        }
     } catch {case e: Exception =>
       logger.error(json)
       Array[BasicDBObject]()
@@ -85,6 +81,6 @@ case class VkProfileTask(profileIds: List[String], saverInfo: SaverInfo)(implici
     }
   }
 
-  override def name: String = s"VkProfileTask(userId=$profileIds)"
+  override def name: String = s"VkProfileTask(userId=${profileIds.length})"
 }
 
