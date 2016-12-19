@@ -24,7 +24,7 @@ object SlootCrawler {
     val actorSystem = context.system
     val balancer = actorSystem.actorOf(Props[SimpleBalancer])
 
-    0 to 1 foreach { _ =>
+    0 to 10 foreach { _ =>
       val worker = actorSystem.actorOf(SimpleWorkerActor.props())
       worker.tell(Init(), balancer)
     }
@@ -45,9 +45,9 @@ object SlootCrawler {
     override def receive: Receive = {
       case "start" =>
 
-        val keywords = List("Антибиотик", "лихорадка", "инфекция мочевых путей", "грипп", "кашель", "продажа", "онлайн",
-          "дешевая", "аптека", "рецепт", "ципрофлоксацин", "котримоксазол", "амоксициллин", "доксициклин", "азитромицин")
-          .take(1)
+        val keywords = List("антибиотик", "лихорадка", "инфекция мочевых путей", "грипп", "кашель", "аптека", "рецепт",
+          "ципрофлоксацин", "котримоксазол", "амоксициллин", "доксициклин", "азитромицин")
+//          .take(1)
 
         val fromTime = new DateTime(2016,1,1,0,0)
         val untilTime = new DateTime(2017,1,1,0,0)
@@ -69,6 +69,7 @@ object SlootCrawler {
 
         if (data.length == 200) {
           logger.debug("Creating more tasks")
+          Thread.sleep(3000)
           balancer ! VkSearchPostsTask(keyword, startTime, halfTime, self, postsSaver)
           balancer ! VkSearchPostsTask(keyword, halfTime, endTime, self, postsSaver)
         } else {
