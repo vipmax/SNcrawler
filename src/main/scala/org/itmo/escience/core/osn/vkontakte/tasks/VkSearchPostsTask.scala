@@ -33,31 +33,36 @@ case class VkSearchPostsTask(query: String,
     .param("v", "5.8")
 
   override def run(network: AnyRef) {
+    val allPosts = collection.mutable.Buffer[BasicDBObject]()
 
-    val json = request
-      .timeout(60 * 1000 * 10, 60 * 1000 * 10)
-      .execute().body
+    new Range(0, 1000, 200) foreach { offset =>
+      val json = request.param("offset", offset.toString)
+        .timeout(60 * 1000 * 10, 60 * 1000 * 10)
+        .execute().body
 
-    val posts = try {
-      JSON.parse(json).asInstanceOf[BasicDBObject]
-        .get("response").asInstanceOf[BasicDBObject]
-        .get("items").asInstanceOf[BasicDBList].toArray
-        .map{ case b:BasicDBObject =>
-          b.append("key", s"${b.getString("from_id")}_${b.getString("id")}")
-            .append("search_query_params", request.params.mkString(", "))
-        }
-    } catch { case e: Exception =>
-      logger.error(e)
-      logger.error(json)
-      Array[BasicDBObject]()
+      val posts = try {
+        JSON.parse(json).asInstanceOf[BasicDBObject]
+          .get("response").asInstanceOf[BasicDBObject]
+          .get("items").asInstanceOf[BasicDBList].toArray
+          .map { case b: BasicDBObject =>
+            b.append("key", s"${b.getString("from_id")}_${b.getString("id")}")
+             .append("search_query_params", request.params.mkString(", "))
+          }
+      } catch {
+        case e: Exception =>
+          logger.error(e)
+          logger.error(json)
+          Array[BasicDBObject]()
+      }
+      allPosts ++= posts
     }
 
     Option(saver) match {
-      case Some(s) => posts.foreach(s.save)
+      case Some(s) => allPosts.foreach(s.save)
       case None => logger.debug(s"No saver for task $name")
     }
     Option(responseActor) match {
-      case Some(actor) => actor ! VkSearchPostsTaskResponse(request.params.toMap, posts)
+      case Some(actor) => actor ! VkSearchPostsTaskResponse(request.params.toMap, allPosts.toArray)
       case None => logger.debug(s"No response Actor for task $name")
     }
   }

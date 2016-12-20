@@ -2,10 +2,9 @@ package org.itmo.escience.core.crawlers
 
 import akka.actor.{Actor, ActorSystem, Props}
 import org.apache.log4j.Logger
-import org.escience.core.osn.vkontakte.tasks.VkProfileTask
 import org.itmo.escience.core.actors.SimpleWorkerActor
 import org.itmo.escience.core.balancers.{Init, SimpleBalancer}
-import org.itmo.escience.core.osn.vkontakte.tasks.{VkFollowersExtendedTask, VkSearchPostsTask, VkSearchPostsTaskResponse}
+import org.itmo.escience.core.osn.vkontakte.tasks.{VkSearchPostsTask, VkSearchPostsTaskResponse}
 import org.itmo.escience.dao.{MongoSaverInfo, MongoSaverInfo2}
 import org.itmo.escience.util.Util
 import org.joda.time.DateTime
@@ -34,7 +33,7 @@ object SlootCrawler {
 
     private val mongoHost = Util.conf.getString("MongoHost")
 
-    private val postsSaver = MongoSaverInfo(endpoint = mongoHost, db = "SlootCrawler", collection = "posts")
+    private val postsSaver = MongoSaverInfo(endpoint = mongoHost, db = "SlootCrawler", collection = "testposts")
     private val profilesSaver = MongoSaverInfo(endpoint = mongoHost, db = "SlootCrawler", collection = "profiles")
     private val subscribersSaver = MongoSaverInfo2(endpoint = mongoHost, db = "SlootCrawler", collection = "subscribers", collection2 = "profiles")
     private val commentsSaver = MongoSaverInfo(endpoint = mongoHost, db = "SlootCrawler", collection = "comments")
@@ -45,9 +44,9 @@ object SlootCrawler {
     override def receive: Receive = {
       case "start" =>
 
-        val keywords = List("антибиотик", "лихорадка", "инфекция мочевых путей", "грипп", "кашель", "аптека", "рецепт",
+        val keywords = List("аптека", "антибиотик", "лихорадка", "инфекция мочевых путей", "грипп", "кашель",  "рецепт",
           "ципрофлоксацин", "котримоксазол", "амоксициллин", "доксициклин", "азитромицин")
-//          .take(1)
+          .take(1)
 
         val fromTime = new DateTime(2016,1,1,0,0)
         val untilTime = new DateTime(2017,1,1,0,0)
@@ -67,7 +66,7 @@ object SlootCrawler {
         val etime = new DateTime(endTime * 1000).toString("yyyy-MM-dd HH:mm")
         logger.debug(s"start_time = ${stime} end_time = ${etime} data.length=${data.length})")
 
-        if (data.length == 200) {
+        if (data.length == 1000) {
           logger.debug("Creating more tasks")
           Thread.sleep(3000)
           balancer ! VkSearchPostsTask(keyword, startTime, halfTime, self, postsSaver)
@@ -76,13 +75,10 @@ object SlootCrawler {
           logger.debug(s"Task end! params = $params")
         }
 
-
-        val ids = data.map(_.getString("from_id")).toList
-        balancer ! VkProfileTask(ids, profilesSaver)
-
-        ids.foreach { id => balancer ! VkFollowersExtendedTask(id, subscribersSaver) }
-
+//        val ids = data.map(_.getString("from_id")).toList
+//        balancer ! VkProfileTask(ids, profilesSaver)
+//
+//        ids.foreach { id => balancer ! VkFollowersExtendedTask(id, subscribersSaver) }
     }
-
   }
 }
